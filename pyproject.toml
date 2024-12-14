@@ -1,0 +1,12 @@
+[project]
+name = "repl-nix-new-repl-1"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "faiss-cpu>=1.9.0.post1",
+    "openai>=1.57.4",
+    "pypdf2>=3.0.1",
+    "streamlit>=1.41.1",
+    "tiktoken>=0.8.0",
+]
