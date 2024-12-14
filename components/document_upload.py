@@ -39,23 +39,28 @@ def render_upload_section():
                 processor = DocumentProcessor()
                 
                 # Process legal document
+                st.info("Step 1: Processing legal document...")
                 legal_results = processor.process_legal_document(
                     st.session_state.documents['legal']
                 )
+                st.success("Legal document processed")
                 
                 # Process internal document
+                st.info("Step 2: Processing internal document...")
                 internal_results = processor.process_internal_document(
                     st.session_state.documents['internal']
                 )
+                st.success("Internal document processed")
                 
+                st.info("Step 3: Combining results...")
                 st.session_state.analysis_results = {
                     'legal': legal_results,
                     'internal': internal_results
                 }
                 
                 st.session_state.current_step = 'analysis'
-                st.success("Documents processed successfully!")
-                st.experimental_rerun()
+                st.success("All documents processed successfully!")
+                st.rerun()
 
 def read_file(uploaded_file) -> str:
     """Read uploaded file and return text content"""
