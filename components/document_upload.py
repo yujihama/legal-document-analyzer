@@ -45,12 +45,22 @@ def render_upload_section():
                 )
                 st.success("Legal document processed")
                 
+                # Display legal document results
+                st.subheader("法令文書の解析結果")
+                st.write(f"抽出されたセクション数: {len(legal_results['sections'])}")
+                st.write(f"要求事項数: {len(legal_results['requirements'])}")
+                st.write(f"禁止事項数: {len(legal_results['prohibitions'])}")
+                
                 # Process internal document
                 st.info("Step 2: Processing internal document...")
                 internal_results = processor.process_internal_document(
                     st.session_state.documents['internal']
                 )
                 st.success("Internal document processed")
+                
+                # Display internal document results
+                st.subheader("社内規定文書の解析結果")
+                st.write(f"抽出されたセクション数: {len(internal_results['sections'])}")
                 
                 st.info("Step 3: Combining results...")
                 st.session_state.analysis_results = {
@@ -59,7 +69,8 @@ def render_upload_section():
                 }
                 
                 st.session_state.current_step = 'analysis'
-                st.success("All documents processed successfully!")
+                st.success("全ての文書の処理が完了しました！")
+                st.write("「Analysis」タブに移動して、詳細な分析結果を確認してください。")
                 st.rerun()
 
 def read_file(uploaded_file) -> str:

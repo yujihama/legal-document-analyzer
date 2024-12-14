@@ -65,7 +65,7 @@ class GPTProcessor:
             messages=[
                 {
                     "role": "system",
-                    "content": "Analyze if the regulation satisfies the requirement. Return JSON with compliance status and explanation."
+                    "content": "Analyze if the regulation satisfies the requirement. Return JSON with the following fields: compliant (boolean), score (float between 0 and 1), explanation (string)."
                 },
                 {
                     "role": "user",
@@ -74,7 +74,15 @@ class GPTProcessor:
             ],
             response_format={"type": "json_object"}
         )
-        return json.loads(response.choices[0].message.content)
+        result = json.loads(response.choices[0].message.content)
+        # Ensure all required fields are present
+        if not all(k in result for k in ['compliant', 'score', 'explanation']):
+            return {
+                'compliant': False,
+                'score': 0.0,
+                'explanation': 'Failed to analyze compliance'
+            }
+        return result
     
     def generate_report(self, analysis_results: Dict) -> str:
         """Generate compliance report in markdown format"""
