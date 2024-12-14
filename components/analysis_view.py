@@ -48,24 +48,55 @@ def render_analysis_section():
             st.success("分析が完了しました")
     
     # Display results
-    st.subheader("遵守状況の概要")
+    headers = {
+        'ja': "遵守状況の概要",
+        'en': "Compliance Status Overview"
+    }
+    st.subheader(headers[st.session_state.language])
     display_compliance_results(st.session_state.compliance_results)
     
     # Display detailed analysis
-    st.subheader("詳細分析")
+    headers_detail = {
+        'ja': "詳細分析",
+        'en': "Detailed Analysis"
+    }
+    labels = {
+        'ja': {
+            'requirement': "要件",
+            'requirement_type': "要件タイプ",
+            'prohibition': "禁止事項",
+            'regular': "要求事項",
+            'matches': "社内規定との一致",
+            'matched_text': "一致したテキスト",
+            'analysis': "分析結果",
+            'score': "一致スコア"
+        },
+        'en': {
+            'requirement': "Requirement",
+            'requirement_type': "Requirement Type",
+            'prohibition': "Prohibition",
+            'regular': "Requirement",
+            'matches': "Matches in Internal Regulations",
+            'matched_text': "Matched Text",
+            'analysis': "Analysis",
+            'score': "Match Score"
+        }
+    }
+    
+    st.subheader(headers_detail[st.session_state.language])
     for i, result in enumerate(st.session_state.compliance_results):
-        with st.expander(f"要件 {i+1}: {result['requirement']['text'][:100]}..."):
-            st.markdown("**要件タイプ:**")
-            st.write("禁止事項" if result['requirement'].get('is_prohibition') else "要求事項")
+        with st.expander(f"{labels[st.session_state.language]['requirement']} {i+1}: {result['requirement']['text'][:100]}..."):
+            st.markdown(f"**{labels[st.session_state.language]['requirement_type']}:**")
+            st.write(labels[st.session_state.language]['prohibition'] if result['requirement'].get('is_prohibition') else labels[st.session_state.language]['regular'])
             
-            st.markdown("**社内規定との一致:**")
+            st.markdown(f"**{labels[st.session_state.language]['matches']}:**")
             for match in result['matches']:
                 st.markdown("---")
-                st.markdown("**一致したテキスト:**")
+                st.markdown(f"**{labels[st.session_state.language]['matched_text']}:**")
                 st.write(match['text'])
-                st.markdown("**分析結果:**")
+                st.markdown(f"**{labels[st.session_state.language]['analysis']}:**")
                 st.write(match['analysis']['explanation'])
-                st.markdown("**一致スコア:**")
+                st.markdown(f"**{labels[st.session_state.language]['score']}:**")
                 st.write(f"{match['analysis'].get('score', 0):.2f}")
 
 def analyze_compliance(requirements, prohibitions, embedding_processor):
@@ -112,18 +143,5 @@ def display_compliance_results(results):
     fig.update_layout(title="Compliance Status Overview")
     st.plotly_chart(fig)
     
-    # Detailed Results
-    st.subheader("Detailed Analysis")
-    for result in results:
-        with st.expander(f"Requirement: {result['requirement']['text'][:100]}..."):
-            st.write("**Requirement Type:**", 
-                    "Prohibition" if result['requirement'].get('is_prohibition') 
-                    else "Requirement")
-            st.write("**Matches in Internal Regulations:**")
-            
-            for match in result['matches']:
-                st.markdown("---")
-                st.write("**Matched Text:**", match['text'])
-                st.write("**Analysis:**", match['analysis']['explanation'])
-                st.write("**Compliance Score:**", 
-                        f"{match['analysis'].get('score', 0):.2f}")
+    # Detailed Results section is now handled in the main display section
+    # Removed duplicate detailed analysis display
