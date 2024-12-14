@@ -299,3 +299,6 @@ def display_compliance_results(results):
                 st.markdown("**クラスタの要約:**")
                 st.write(cluster_info['summary'])
                 st.markdown(f"**このクラスタに含まれる要件数:** {cluster_info['count']}")
+                st.markdown("**クラスタ内のテキスト一覧:**")
+                for i, text in enumerate(cluster_info.get('texts', []), 1):
+                    st.write(f"{i}. {text[:30]}...")

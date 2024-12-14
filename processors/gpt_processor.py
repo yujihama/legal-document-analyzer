@@ -358,7 +358,9 @@ class GPTProcessor:
                 messages=[{
                     "role": "system",
                     "content": get_section_prompt('requirements').format(
-                        start=i+1, end=min(i+chunk_size, len(compliance_results))
+                        start=i+1,
+                        end=min(i+chunk_size, len(compliance_results)),
+                        reqs=json.dumps(chunk)
                     )
                 }, {
                     "role": "user",
