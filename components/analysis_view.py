@@ -1,5 +1,6 @@
 import streamlit as st
 import plotly.graph_objects as go
+import numpy as np
 from processors.embedding_processor import EmbeddingProcessor
 from processors.gpt_processor import GPTProcessor
 
