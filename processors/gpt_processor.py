@@ -82,6 +82,7 @@ class GPTProcessor:
 
     def extract_requirements(self,
                              text: str,
+                             context: Dict = None,
                              num_extractions: int = 1,
                              threshold: float = 0.6) -> Dict:
         """Extract requirements and prohibitions from text using multiple extractions and majority voting"""
@@ -101,6 +102,19 @@ class GPTProcessor:
                 'response': None
             }
 
+            # Prepare context information for prompt
+            context_prompt = ""
+            if context:
+                context_prompt = f"""
+文書の種類: {context.get('document_type', '不明')}
+主題: {context.get('main_subject', '不明')}
+重要な概念: {', '.join(context.get('key_concepts', []))}
+現在のセクション: {context.get('local_context', {}).get('current_section', '不明')}
+セクションの概要: {context.get('local_context', {}).get('section_summary', '不明')}
+
+上記のコンテキストを考慮して、以下のテキストから要求事項と禁止事項を抽出してください：
+"""
+
             response = self.client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=[{
@@ -108,7 +122,7 @@ class GPTProcessor:
                     "content": prompt
                 }, {
                     "role": "user",
-                    "content": text
+                    "content": context_prompt + text if context_prompt else text
                 }],
                 response_format={"type": "json_object"})
 
@@ -244,6 +258,48 @@ class GPTProcessor:
                 'explanation': 'Failed to analyze compliance'
             }
         return result
+
+    def extract_hierarchical_context(self, text: str) -> Dict:
+        """Extract hierarchical context information from the document"""
+        prompt = """
+        文書から階層的なコンテキスト情報を抽出してください。
+        以下の情報を含むJSONで返してください：
+        - document_type: 文書の種類（法令、規則、ガイドラインなど）
+        - main_subject: 文書の主題
+        - key_concepts: 重要な概念や定義のリスト
+        - hierarchy: 文書の階層構造（章、節、項など）
+
+        回答フォーマット：
+        {
+            "document_type": "文書の種類",
+            "main_subject": "主題",
+            "key_concepts": ["概念1", "概念2", ...],
+            "hierarchy": {
+                "title": "文書タイトル",
+                "sections": [
+                    {
+                        "title": "章タイトル",
+                        "level": 1,
+                        "summary": "章の要約",
+                        "sections": [...]
+                    }
+                ]
+            }
+        }
+        """
+
+        response = self.client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{
+                "role": "system",
+                "content": prompt
+            }, {
+                "role": "user",
+                "content": text
+            }],
+            response_format={"type": "json_object"})
+
+        return json.loads(response.choices[0].message.content)
 
     def generate_report(self, analysis_results: Dict) -> str:
         """Generate compliance report in markdown format"""
