@@ -43,13 +43,20 @@ class GPTProcessor:
             messages=[
                 {
                     "role": "system",
-                    "content": "Extract requirements ('must do') and prohibitions ('must not do') from the text. Return as JSON with two lists."
+                    "content": "Extract requirements ('must do') and prohibitions ('must not do') from the text. Return JSON with 'requirements' and 'prohibitions' arrays. Each item should have 'text' and 'source_section' fields."
                 },
                 {"role": "user", "content": text}
             ],
             response_format={"type": "json_object"}
         )
-        return json.loads(response.choices[0].message.content)
+        result = json.loads(response.choices[0].message.content)
+        # Ensure the response has the required keys
+        if 'requirements' not in result or 'prohibitions' not in result:
+            return {
+                'requirements': [],
+                'prohibitions': []
+            }
+        return result
     
     def analyze_compliance(self, requirement: str, regulation: str) -> Dict:
         """Analyze if regulation satisfies requirement"""
