@@ -75,47 +75,109 @@ class GPTProcessor:
             }
         return result
     
-    def extract_requirements(self, text: str) -> Dict:
-        """Extract requirements and prohibitions from text"""
+    def extract_requirements(self, text: str, num_extractions: int = 3, threshold: float = 0.6) -> Dict:
+        """Extract requirements and prohibitions from text using multiple extractions and majority voting"""
         import streamlit as st
         
+        all_requirements = []
+        all_prohibitions = []
+        
         prompt = self.get_prompt('extract_requirements')
-        debug_info = {
-            'title': 'Extract Requirements',
-            'input': f"Text: {text[:500]}...\nPrompt: {prompt}",
-            'response': None
+        
+        # Perform multiple extractions
+        for i in range(num_extractions):
+            debug_info = {
+                'title': f'Extract Requirements (Attempt {i+1}/{num_extractions})',
+                'input': f"Text: {text[:500]}...\nPrompt: {prompt}",
+                'response': None
+            }
+            
+            response = self.client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": prompt
+                    },
+                    {"role": "user", "content": text}
+                ],
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            debug_info['response'] = result
+            
+            # Save debug info to session state
+            if 'processing_results' not in st.session_state:
+                st.session_state.processing_results = {
+                    'legal': {'debug_info': []},
+                    'internal': {'debug_info': []}
+                }
+            st.session_state.processing_results['legal']['debug_info'].append(debug_info)
+            
+            if 'requirements' in result and 'prohibitions' in result:
+                all_requirements.extend(result['requirements'])
+                all_prohibitions.extend(result['prohibitions'])
+        
+        # Helper function to find similar items
+        def find_similar_items(items):
+            from collections import defaultdict
+            groups = defaultdict(list)
+            
+            for item in items:
+                text = item['text']
+                found_group = False
+                
+                # Compare with existing groups
+                for key in groups:
+                    # Simple similarity check based on common words
+                    common_words = set(text.split()) & set(key.split())
+                    similarity = len(common_words) / max(len(text.split()), len(key.split()))
+                    
+                    if similarity > 0.7:  # Threshold for considering items similar
+                        groups[key].append(item)
+                        found_group = True
+                        break
+                
+                if not found_group:
+                    groups[text].append(item)
+            
+            return groups
+        
+        # Process requirements and prohibitions
+        def process_items(items, threshold_count):
+            groups = find_similar_items(items)
+            result = []
+            
+            for key, group in groups.items():
+                if len(group) >= threshold_count:
+                    # Use the most common version of the text
+                    from collections import Counter
+                    texts = Counter(item['text'] for item in group)
+                    most_common_text = texts.most_common(1)[0][0]
+                    
+                    # Use the most detailed source section
+                    source_sections = [item.get('source_section', '') for item in group]
+                    source_section = max(source_sections, key=len, default='')
+                    
+                    result.append({
+                        'text': most_common_text,
+                        'source_section': source_section
+                    })
+            
+            return result
+        
+        # Calculate threshold count based on number of extractions
+        threshold_count = int(num_extractions * threshold)
+        
+        # Process both requirements and prohibitions
+        final_requirements = process_items(all_requirements, threshold_count)
+        final_prohibitions = process_items(all_prohibitions, threshold_count)
+        
+        return {
+            'requirements': final_requirements,
+            'prohibitions': final_prohibitions
         }
-        
-        response = self.client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {
-                    "role": "system",
-                    "content": prompt
-                },
-                {"role": "user", "content": text}
-            ],
-            response_format={"type": "json_object"}
-        )
-        
-        result = json.loads(response.choices[0].message.content)
-        debug_info['response'] = result
-        
-        # Save debug info to session state
-        if 'processing_results' not in st.session_state:
-            st.session_state.processing_results = {
-                'legal': {'debug_info': []},
-                'internal': {'debug_info': []}
-            }
-        st.session_state.processing_results['legal']['debug_info'].append(debug_info)
-        
-        # Ensure the response has the required keys
-        if 'requirements' not in result or 'prohibitions' not in result:
-            return {
-                'requirements': [],
-                'prohibitions': []
-            }
-        return result
     
     def analyze_compliance(self, requirement: str, regulation: str) -> Dict:
         """Analyze if regulation satisfies requirement"""
