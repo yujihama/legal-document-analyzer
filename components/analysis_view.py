@@ -100,43 +100,80 @@ def render_analysis_section():
                 st.markdown(f"**{labels[st.session_state.language]['score']}:**")
                 st.write(f"{match['analysis'].get('score', 0):.2f}")
 
+import multiprocessing
+from functools import partial
+
+def process_requirement(req, embedding_processor, clusters, gpt_processor):
+    """Process a single requirement in parallel"""
+    # Find similar sections in internal regulations
+    similar = embedding_processor.find_similar(req['text'], k=3)
+    
+    # Find the most relevant cluster
+    query_embedding = embedding_processor.get_embedding(req['text'])
+    distances = []
+    for cluster in clusters:
+        distance = np.linalg.norm(query_embedding - cluster.centroid)
+        distances.append((distance, cluster))
+    closest_cluster = min(distances, key=lambda x: x[0])[1]
+    
+    # Analyze compliance for each similar section
+    compliance_status = []
+    for match in similar:
+        analysis = gpt_processor.analyze_compliance(req['text'], match['text'])
+        compliance_status.append({
+            'text': match['text'],
+            'analysis': analysis,
+            'similarity_score': match['score'],
+            'cluster_info': closest_cluster.to_dict()
+        })
+    
+    return {
+        'requirement': req,
+        'matches': compliance_status,
+        'cluster': closest_cluster.to_dict()
+    }
+
 def analyze_compliance(requirements, prohibitions, embedding_processor):
-    """Analyze compliance for requirements and prohibitions"""
+    """Analyze compliance for requirements and prohibitions using parallel processing"""
     gpt_processor = GPTProcessor()
-    results = []
     
     # First, perform clustering on internal regulations
-    clusters = embedding_processor.perform_clustering(n_clusters=min(5, len(embedding_processor.stored_texts)))
-    embedding_processor.update_cluster_representatives(gpt_processor)
+    with st.spinner("クラスタリングを実行中..."):
+        clusters = embedding_processor.perform_clustering(
+            n_clusters=min(5, len(embedding_processor.stored_texts))
+        )
+        embedding_processor.update_cluster_representatives(gpt_processor)
     
-    for req in requirements + prohibitions:
-        # Find similar sections in internal regulations
-        similar = embedding_processor.find_similar(req['text'], k=3)
+    # Prepare all requirements for processing
+    all_reqs = requirements + prohibitions
+    total_reqs = len(all_reqs)
+    
+    # Create a progress bar
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    # Process requirements in parallel
+    with multiprocessing.Pool() as pool:
+        # Create a partial function with fixed arguments
+        process_func = partial(
+            process_requirement,
+            embedding_processor=embedding_processor,
+            clusters=clusters,
+            gpt_processor=gpt_processor
+        )
         
-        # Find the most relevant cluster
-        query_embedding = embedding_processor.get_embedding(req['text'])
-        distances = []
-        for cluster in clusters:
-            distance = np.linalg.norm(query_embedding - cluster.centroid)
-            distances.append((distance, cluster))
-        closest_cluster = min(distances, key=lambda x: x[0])[1]
-        
-        # Analyze compliance for each similar section
-        compliance_status = []
-        for match in similar:
-            analysis = gpt_processor.analyze_compliance(req['text'], match['text'])
-            compliance_status.append({
-                'text': match['text'],
-                'analysis': analysis,
-                'similarity_score': match['score'],
-                'cluster_info': closest_cluster.to_dict()
-            })
-        
-        results.append({
-            'requirement': req,
-            'matches': compliance_status,
-            'cluster': closest_cluster.to_dict()
-        })
+        # Process requirements in parallel with progress updates
+        results = []
+        for i, result in enumerate(pool.imap_unordered(process_func, all_reqs)):
+            results.append(result)
+            # Update progress
+            progress = (i + 1) / total_reqs
+            progress_bar.progress(progress)
+            status_text.text(f"分析進捗: {i + 1}/{total_reqs} 要件を処理完了")
+    
+    # Clear progress indicators
+    progress_bar.empty()
+    status_text.empty()
     
     return results
 
