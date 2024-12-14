@@ -104,9 +104,21 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
     gpt_processor = GPTProcessor()
     results = []
     
+    # First, perform clustering on internal regulations
+    clusters = embedding_processor.perform_clustering(n_clusters=min(5, len(embedding_processor.stored_texts)))
+    embedding_processor.update_cluster_representatives(gpt_processor)
+    
     for req in requirements + prohibitions:
         # Find similar sections in internal regulations
         similar = embedding_processor.find_similar(req['text'], k=3)
+        
+        # Find the most relevant cluster
+        query_embedding = embedding_processor.get_embedding(req['text'])
+        distances = []
+        for cluster in clusters:
+            distance = np.linalg.norm(query_embedding - cluster.centroid)
+            distances.append((distance, cluster))
+        closest_cluster = min(distances, key=lambda x: x[0])[1]
         
         # Analyze compliance for each similar section
         compliance_status = []
@@ -115,12 +127,22 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
             compliance_status.append({
                 'text': match['text'],
                 'analysis': analysis,
-                'similarity_score': match['score']
+                'similarity_score': match['score'],
+                'cluster_info': {
+                    'id': closest_cluster.id,
+                    'summary': closest_cluster.summary,
+                    'representative_text': closest_cluster.representative_text
+                }
             })
         
         results.append({
             'requirement': req,
-            'matches': compliance_status
+            'matches': compliance_status,
+            'cluster': {
+                'id': closest_cluster.id,
+                'summary': closest_cluster.summary,
+                'representative_text': closest_cluster.representative_text
+            }
         })
     
     return results

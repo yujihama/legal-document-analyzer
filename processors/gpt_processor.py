@@ -320,3 +320,43 @@ class GPTProcessor:
                 "content": json.dumps(analysis_results)
             }])
         return response.choices[0].message.content
+
+    def summarize_cluster(self, texts: str) -> Dict:
+        """Summarize a cluster of texts and generate a representative text"""
+        prompts = {
+            'ja': """
+            以下の関連文書群から、以下の2つを生成してください：
+            1. この文書群を代表する代表的なテキスト（最も特徴的な1つを選ぶか、複数を組み合わせて生成）
+            2. 文書群全体の要約（トピックや主要なポイントを含む）
+
+            回答は以下のJSON形式で返してください：
+            {
+                "representative_text": "代表的なテキスト",
+                "summary": "全体の要約"
+            }
+            """,
+            'en': """
+            From the following related documents, please generate:
+            1. A representative text for this document cluster (select the most characteristic one or combine multiple)
+            2. A summary of the entire document cluster (including topics and key points)
+
+            Please return in the following JSON format:
+            {
+                "representative_text": "representative text",
+                "summary": "overall summary"
+            }
+            """
+        }
+
+        response = self.client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{
+                "role": "system",
+                "content": prompts[self.language]
+            }, {
+                "role": "user",
+                "content": texts
+            }],
+            response_format={"type": "json_object"})
+        
+        return json.loads(response.choices[0].message.content)
