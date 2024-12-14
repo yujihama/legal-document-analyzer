@@ -103,8 +103,27 @@ def render_analysis_section():
 import multiprocessing
 from functools import partial
 
-def process_requirement(req, embedding_processor, clusters, gpt_processor):
+def process_requirement(args):
     """Process a single requirement in parallel"""
+    req, stored_texts, cluster_data = args
+    
+    # Initialize processors in the child process
+    embedding_processor = EmbeddingProcessor()
+    embedding_processor.stored_texts = stored_texts
+    gpt_processor = GPTProcessor()
+    
+    # Recreate clusters from serialized data
+    clusters = []
+    for c_data in cluster_data:
+        cluster = ClusterInfo(
+            id=c_data['id'],
+            texts=c_data['texts'],
+            centroid=np.array(c_data['centroid']) if c_data['centroid'] else None,
+            representative_text=c_data['representative_text'],
+            summary=c_data['summary']
+        )
+        clusters.append(cluster)
+    
     # Find similar sections in internal regulations
     similar = embedding_processor.find_similar(req['text'], k=3)
     
@@ -144,9 +163,16 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
         )
         embedding_processor.update_cluster_representatives(gpt_processor)
     
+    # Prepare serializable data for multiprocessing
+    stored_texts = embedding_processor.stored_texts
+    cluster_data = [cluster.to_dict() for cluster in clusters]
+    
     # Prepare all requirements for processing
     all_reqs = requirements + prohibitions
     total_reqs = len(all_reqs)
+    
+    # Create args for each requirement
+    process_args = [(req, stored_texts, cluster_data) for req in all_reqs]
     
     # Create a progress bar
     progress_bar = st.progress(0)
@@ -154,17 +180,9 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
     
     # Process requirements in parallel
     with multiprocessing.Pool() as pool:
-        # Create a partial function with fixed arguments
-        process_func = partial(
-            process_requirement,
-            embedding_processor=embedding_processor,
-            clusters=clusters,
-            gpt_processor=gpt_processor
-        )
-        
         # Process requirements in parallel with progress updates
         results = []
-        for i, result in enumerate(pool.imap_unordered(process_func, all_reqs)):
+        for i, result in enumerate(pool.imap_unordered(process_requirement, process_args)):
             results.append(result)
             # Update progress
             progress = (i + 1) / total_reqs
