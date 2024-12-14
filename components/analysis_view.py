@@ -271,7 +271,8 @@ def display_compliance_results(results):
                         clusters[cluster_id] = {
                             'count': 0,
                             'summary': cluster.get('summary', ''),
-                            'representative_text': cluster.get('representative_text', '')
+                            'representative_text': cluster.get('representative_text', ''),
+                            'texts': cluster.get('texts', [])  # 追加: テキストリストの保持
                         }
                     clusters[cluster_id]['count'] += 1
             

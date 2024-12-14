@@ -19,7 +19,7 @@ class ClusterInfo:
         """Convert to dictionary with JSON serializable types"""
         return {
             'id': int(self.id),
-            'texts': self.texts,
+            'texts': list(self.texts) if self.texts else [],  # 確実にリストとして保持
             'centroid': self.centroid.tolist() if isinstance(self.centroid, np.ndarray) else None,
             'representative_text': self.representative_text,
             'summary': self.summary,
