@@ -302,24 +302,100 @@ class GPTProcessor:
         return json.loads(response.choices[0].message.content)
 
     def generate_report(self, analysis_results: Dict) -> str:
-        """Generate compliance report in markdown format"""
-        prompts = {
-            'ja':
-            "以下の分析結果に基づいて、詳細なコンプライアンスレポートをマークダウン形式で生成してください。要求事項の遵守状況、ギャップ、改善提案を含めてください。",
-            'en':
-            "Generate a detailed compliance report in markdown format based on the analysis results. Include compliance status, gaps, and improvement suggestions."
+        """Generate compliance report in markdown format by processing chunks of data"""
+        
+        def get_section_prompt(section_type: str) -> str:
+            prompts = {
+                'summary': {
+                    'ja': "以下の統計情報に基づいて、コンプライアンス状況の概要を生成してください：\n{stats}",
+                    'en': "Generate a compliance overview based on the following statistics:\n{stats}"
+                },
+                'requirements': {
+                    'ja': "以下の要件グループについて分析してください（{start}から{end}まで）：\n{reqs}",
+                    'en': "Analyze the following group of requirements ({start} to {end}):\n{reqs}"
+                },
+                'recommendations': {
+                    'ja': "分析結果に基づいて、主な改善提案を生成してください：\n{gaps}",
+                    'en': "Generate key improvement suggestions based on the analysis:\n{gaps}"
+                }
+            }
+            return prompts[section_type][self.language]
+        
+        # Generate overview section
+        stats = {
+            'total_requirements': len(analysis_results.get('compliance_results', [])),
+            'compliant_count': sum(1 for r in analysis_results.get('compliance_results', [])
+                                 if any(m['analysis']['compliant'] for m in r['matches'])),
+            'document_info': {
+                'legal': analysis_results.get('documents', {}).get('legal', ''),
+                'internal': analysis_results.get('documents', {}).get('internal', '')
+            }
         }
-
-        response = self.client.chat.completions.create(
+        
+        overview_response = self.client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{
                 "role": "system",
-                "content": prompts[self.language]
+                "content": get_section_prompt('summary')
             }, {
                 "role": "user",
-                "content": json.dumps(analysis_results)
-            }])
-        return response.choices[0].message.content
+                "content": json.dumps(stats)
+            }]
+        )
+        
+        overview_section = overview_response.choices[0].message.content
+        
+        # Process requirements in chunks
+        requirements_sections = []
+        chunk_size = 5  # Process 5 requirements at a time
+        compliance_results = analysis_results.get('compliance_results', [])
+        
+        for i in range(0, len(compliance_results), chunk_size):
+            chunk = compliance_results[i:i + chunk_size]
+            
+            req_response = self.client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[{
+                    "role": "system",
+                    "content": get_section_prompt('requirements').format(
+                        start=i+1, end=min(i+chunk_size, len(compliance_results))
+                    )
+                }, {
+                    "role": "user",
+                    "content": json.dumps(chunk)
+                }]
+            )
+            
+            requirements_sections.append(req_response.choices[0].message.content)
+        
+        # Generate recommendations based on non-compliant items
+        gaps = [r for r in compliance_results 
+               if not any(m['analysis']['compliant'] for m in r['matches'])]
+        
+        recommendations_response = self.client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{
+                "role": "system",
+                "content": get_section_prompt('recommendations')
+            }, {
+                "role": "user",
+                "content": json.dumps(gaps[:5])  # Process top 5 gaps
+            }]
+        )
+        
+        # Combine all sections using string concatenation instead of f-string
+        report_parts = [
+            "# コンプライアンス分析レポート\n\n",
+            "## 概要\n",
+            overview_section + "\n\n",
+            "## 詳細分析\n",
+            "\n\n".join(requirements_sections) + "\n\n",
+            "## 改善提案\n",
+            recommendations_response.choices[0].message.content
+        ]
+        report = "".join(report_parts)
+        
+        return report
 
     def summarize_cluster(self, texts: str) -> Dict:
         """Summarize a cluster of texts and generate a representative text"""
