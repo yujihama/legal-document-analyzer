@@ -38,13 +38,35 @@ def render_analysis_section():
     
     # Analyze compliance for each requirement
     if 'compliance_results' not in st.session_state:
-        st.session_state.compliance_results = analyze_compliance(
-            results['legal']['requirements'],
-            results['legal']['prohibitions'],
-            st.session_state.embedding_processor
-        )
+        with st.spinner("分析を実行中..."):
+            compliance_results = analyze_compliance(
+                results['legal']['requirements'],
+                results['legal']['prohibitions'],
+                st.session_state.embedding_processor
+            )
+            st.session_state.compliance_results = compliance_results
+            st.success("分析が完了しました")
     
+    # Display results
+    st.subheader("遵守状況の概要")
     display_compliance_results(st.session_state.compliance_results)
+    
+    # Display detailed analysis
+    st.subheader("詳細分析")
+    for i, result in enumerate(st.session_state.compliance_results):
+        with st.expander(f"要件 {i+1}: {result['requirement']['text'][:100]}..."):
+            st.markdown("**要件タイプ:**")
+            st.write("禁止事項" if result['requirement'].get('is_prohibition') else "要求事項")
+            
+            st.markdown("**社内規定との一致:**")
+            for match in result['matches']:
+                st.markdown("---")
+                st.markdown("**一致したテキスト:**")
+                st.write(match['text'])
+                st.markdown("**分析結果:**")
+                st.write(match['analysis']['explanation'])
+                st.markdown("**一致スコア:**")
+                st.write(f"{match['analysis'].get('score', 0):.2f}")
 
 def analyze_compliance(requirements, prohibitions, embedding_processor):
     """Analyze compliance for requirements and prohibitions"""
