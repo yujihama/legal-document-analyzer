@@ -6,216 +6,236 @@ from typing import Dict, List
 # do not change this unless explicitly requested by the user
 MODEL_NAME = "gpt-4o"
 
+
 class GPTProcessor:
+
     def __init__(self, language='ja'):
         self.client = OpenAI()
         self.language = language
-        
+
     def get_prompt(self, key: str) -> str:
         """Get prompt based on language setting"""
         prompts = {
             'extract_sections': {
-                'ja': "文書のセクションとその階層構造を抽出してください。'sections'キーを持つJSONで返してください。各セクションは'title'と'text'フィールドを持ちます。",
-                'en': "Extract the document sections and their hierarchy. Return as JSON with a 'sections' key containing an array of sections. Each section should have 'title' and 'text' fields."
+                'ja':
+                "文書のセクションとその階層構造を抽出してください。'sections'キーを持つJSONで返してください。各セクションは'title'と'text'フィールドを持ちます。回答フォーマット：{'sections':[{'title':'XXXXX','text':'XXXXXXXXXXXX'},...]}",
+                'en':
+                "Extract the document sections and their hierarchy. Return as JSON with a 'sections' key containing an array of sections. Each section should have 'title' and 'text' fields.format:{'sections':[{'title':'XXXXX','text':'XXXXXXXXXXXX'},...]}"
             },
             'extract_requirements': {
-                'ja': "テキストから要求事項（〜しなければならない）と禁止事項（〜してはならない）を抽出してください。'requirements'と'prohibitions'の配列を持つJSONで返してください。各項目は'text'と'source_section'フィールドを持ちます。",
-                'en': "Extract requirements ('must do') and prohibitions ('must not do') from the text. Return JSON with 'requirements' and 'prohibitions' arrays. Each item should have 'text' and 'source_section' fields."
+                'ja':
+                "テキストから要求事項と禁止事項を抽出してください。'requirements'と'prohibitions'の配列を持つJSONで返してください。各項目は'text'と'source_section'フィールドを持ちます。",
+                'en':
+                "Extract requirements ('must do') and prohibitions ('must not do') from the text. Return JSON with 'requirements' and 'prohibitions' arrays. Each item should have 'text' and 'source_section' fields."
             },
             'analyze_compliance': {
-                'ja': "規制が要件を満たしているか分析してください。以下のフィールドを持つJSONで返してください：compliant（真偽値）、score（0から1の数値）、explanation（説明文）。",
-                'en': "Analyze if the regulation satisfies the requirement. Return JSON with the following fields: compliant (boolean), score (float between 0 and 1), explanation (string)."
+                'ja':
+                "規制が要件を満たしているか分析してください。以下のフィールドを持つJSONで返してください：compliant（真偽値）、score（0から1の数値）、explanation（説明文）。",
+                'en':
+                "Analyze if the regulation satisfies the requirement. Return JSON with the following fields: compliant (boolean), score (float between 0 and 1), explanation (string)."
             }
         }
         return prompts[key][self.language]
-    
+
     def extract_sections(self, text: str) -> Dict:
         """Extract document sections using GPT-4o"""
         import streamlit as st
-        
+
         prompt = self.get_prompt('extract_sections')
         debug_info = {
             'title': 'Extract Sections',
             'input': f"Text: {text[:500]}...\nPrompt: {prompt}",
             'response': None
         }
-        
+
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[
-                {
-                    "role": "system",
-                    "content": prompt
-                },
-                {"role": "user", "content": text}
-            ],
-            response_format={"type": "json_object"}
-        )
-        
+            messages=[{
+                "role": "system",
+                "content": prompt
+            }, {
+                "role": "user",
+                "content": text
+            }],
+            response_format={"type": "json_object"})
+
         result = json.loads(response.choices[0].message.content)
         debug_info['response'] = result
-        
+
         # Save debug info to session state
         if 'processing_results' not in st.session_state:
             st.session_state.processing_results = {
-                'legal': {'debug_info': []},
-                'internal': {'debug_info': []}
+                'legal': {
+                    'debug_info': []
+                },
+                'internal': {
+                    'debug_info': []
+                }
             }
-        st.session_state.processing_results['legal']['debug_info'].append(debug_info)
-        
+        st.session_state.processing_results['legal']['debug_info'].append(
+            debug_info)
+
         if 'sections' not in result:
             # If GPT doesn't return the expected format, create it
-            return {
-                'sections': [
-                    {
-                        'title': 'Section 1',
-                        'text': text
-                    }
-                ]
-            }
+            return {'sections': [{'title': 'Section 1', 'text': text}]}
         return result
-    
-    def extract_requirements(self, text: str, num_extractions: int = 3, threshold: float = 0.6) -> Dict:
+
+    def extract_requirements(self,
+                             text: str,
+                             num_extractions: int = 3,
+                             threshold: float = 0.6) -> Dict:
         """Extract requirements and prohibitions from text using multiple extractions and majority voting"""
         import streamlit as st
-        
+
         all_requirements = []
         all_prohibitions = []
-        
+
         prompt = self.get_prompt('extract_requirements')
-        
+
         # Perform multiple extractions
         for i in range(num_extractions):
             debug_info = {
-                'title': f'Extract Requirements (Attempt {i+1}/{num_extractions})',
+                'title':
+                f'Extract Requirements (Attempt {i+1}/{num_extractions})',
                 'input': f"Text: {text[:500]}...\nPrompt: {prompt}",
                 'response': None
             }
-            
+
             response = self.client.chat.completions.create(
                 model=MODEL_NAME,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": prompt
-                    },
-                    {"role": "user", "content": text}
-                ],
-                response_format={"type": "json_object"}
-            )
-            
+                messages=[{
+                    "role": "system",
+                    "content": prompt
+                }, {
+                    "role": "user",
+                    "content": text
+                }],
+                response_format={"type": "json_object"})
+
             result = json.loads(response.choices[0].message.content)
             debug_info['response'] = result
-            
+
             # Save debug info to session state
             if 'processing_results' not in st.session_state:
                 st.session_state.processing_results = {
-                    'legal': {'debug_info': []},
-                    'internal': {'debug_info': []}
+                    'legal': {
+                        'debug_info': []
+                    },
+                    'internal': {
+                        'debug_info': []
+                    }
                 }
-            st.session_state.processing_results['legal']['debug_info'].append(debug_info)
-            
+            st.session_state.processing_results['legal']['debug_info'].append(
+                debug_info)
+
             if 'requirements' in result and 'prohibitions' in result:
                 all_requirements.extend(result['requirements'])
                 all_prohibitions.extend(result['prohibitions'])
-        
+
         # Helper function to find similar items
         def find_similar_items(items):
             from collections import defaultdict
             groups = defaultdict(list)
-            
+
             for item in items:
                 text = item['text']
                 found_group = False
-                
+
                 # Compare with existing groups
                 for key in groups:
                     # Simple similarity check based on common words
                     common_words = set(text.split()) & set(key.split())
-                    similarity = len(common_words) / max(len(text.split()), len(key.split()))
-                    
+                    similarity = len(common_words) / max(
+                        len(text.split()), len(key.split()))
+
                     if similarity > 0.7:  # Threshold for considering items similar
                         groups[key].append(item)
                         found_group = True
                         break
-                
+
                 if not found_group:
                     groups[text].append(item)
-            
+
             return groups
-        
+
         # Process requirements and prohibitions
         def process_items(items, threshold_count):
             groups = find_similar_items(items)
             result = []
-            
+
             for key, group in groups.items():
                 if len(group) >= threshold_count:
                     # Use the most common version of the text
                     from collections import Counter
                     texts = Counter(item['text'] for item in group)
                     most_common_text = texts.most_common(1)[0][0]
-                    
+
                     # Use the most detailed source section
-                    source_sections = [item.get('source_section', '') for item in group]
+                    source_sections = [
+                        item.get('source_section', '') for item in group
+                    ]
                     source_section = max(source_sections, key=len, default='')
-                    
+
                     result.append({
                         'text': most_common_text,
                         'source_section': source_section
                     })
-            
+
             return result
-        
+
         # Calculate threshold count based on number of extractions
         threshold_count = int(num_extractions * threshold)
-        
+
         # Process both requirements and prohibitions
         final_requirements = process_items(all_requirements, threshold_count)
         final_prohibitions = process_items(all_prohibitions, threshold_count)
-        
+
         return {
             'requirements': final_requirements,
             'prohibitions': final_prohibitions
         }
-    
+
     def analyze_compliance(self, requirement: str, regulation: str) -> Dict:
         """Analyze if regulation satisfies requirement"""
         import streamlit as st
-        
+
         prompt = self.get_prompt('analyze_compliance')
         debug_info = {
             'title': 'Analyze Compliance',
-            'input': f"Requirement: {requirement}\nRegulation: {regulation}\nPrompt: {prompt}",
+            'input':
+            f"Requirement: {requirement}\nRegulation: {regulation}\nPrompt: {prompt}",
             'response': None
         }
-        
+
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[
-                {
-                    "role": "system",
-                    "content": prompt
-                },
-                {
-                    "role": "user",
-                    "content": f"Requirement: {requirement}\nRegulation: {regulation}"
-                }
-            ],
-            response_format={"type": "json_object"}
-        )
-        
+            messages=[{
+                "role": "system",
+                "content": prompt
+            }, {
+                "role":
+                "user",
+                "content":
+                f"Requirement: {requirement}\nRegulation: {regulation}"
+            }],
+            response_format={"type": "json_object"})
+
         result = json.loads(response.choices[0].message.content)
         debug_info['response'] = result
-        
+
         # Save debug info to session state
         if 'processing_results' not in st.session_state:
             st.session_state.processing_results = {
-                'legal': {'debug_info': []},
-                'internal': {'debug_info': []}
+                'legal': {
+                    'debug_info': []
+                },
+                'internal': {
+                    'debug_info': []
+                }
             }
-        st.session_state.processing_results['internal']['debug_info'].append(debug_info)
-        
+        st.session_state.processing_results['internal']['debug_info'].append(
+            debug_info)
+
         # Ensure all required fields are present
         if not all(k in result for k in ['compliant', 'score', 'explanation']):
             return {
@@ -224,25 +244,23 @@ class GPTProcessor:
                 'explanation': 'Failed to analyze compliance'
             }
         return result
-    
+
     def generate_report(self, analysis_results: Dict) -> str:
         """Generate compliance report in markdown format"""
         prompts = {
-            'ja': "以下の分析結果に基づいて、詳細なコンプライアンスレポートをマークダウン形式で生成してください。要求事項の遵守状況、ギャップ、改善提案を含めてください。",
-            'en': "Generate a detailed compliance report in markdown format based on the analysis results. Include compliance status, gaps, and improvement suggestions."
+            'ja':
+            "以下の分析結果に基づいて、詳細なコンプライアンスレポートをマークダウン形式で生成してください。要求事項の遵守状況、ギャップ、改善提案を含めてください。",
+            'en':
+            "Generate a detailed compliance report in markdown format based on the analysis results. Include compliance status, gaps, and improvement suggestions."
         }
-        
+
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[
-                {
-                    "role": "system",
-                    "content": prompts[self.language]
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(analysis_results)
-                }
-            ]
-        )
+            messages=[{
+                "role": "system",
+                "content": prompts[self.language]
+            }, {
+                "role": "user",
+                "content": json.dumps(analysis_results)
+            }])
         return response.choices[0].message.content
