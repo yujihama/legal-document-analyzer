@@ -14,6 +14,17 @@ class ClusterInfo:
     representative_text: Optional[str] = None
     summary: Optional[str] = None
     created_at: datetime = datetime.now()
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary with JSON serializable types"""
+        return {
+            'id': int(self.id),
+            'texts': self.texts,
+            'centroid': self.centroid.tolist() if isinstance(self.centroid, np.ndarray) else None,
+            'representative_text': self.representative_text,
+            'summary': self.summary,
+            'created_at': self.created_at.isoformat()
+        }
 
 class EmbeddingProcessor:
 

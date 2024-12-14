@@ -129,21 +129,13 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                 'text': match['text'],
                 'analysis': analysis,
                 'similarity_score': match['score'],
-                'cluster_info': {
-                    'id': closest_cluster.id,
-                    'summary': closest_cluster.summary,
-                    'representative_text': closest_cluster.representative_text
-                }
+                'cluster_info': closest_cluster.to_dict()
             })
         
         results.append({
             'requirement': req,
             'matches': compliance_status,
-            'cluster': {
-                'id': closest_cluster.id,
-                'summary': closest_cluster.summary,
-                'representative_text': closest_cluster.representative_text
-            }
+            'cluster': closest_cluster.to_dict()
         })
     
     return results

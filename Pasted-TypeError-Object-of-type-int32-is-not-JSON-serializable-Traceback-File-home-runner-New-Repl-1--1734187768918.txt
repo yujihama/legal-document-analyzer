@@ -1,0 +1,31 @@
+TypeError: Object of type int32 is not JSON serializable
+Traceback:
+File "/home/runner/New-Repl-1/.pythonlibs/lib/python3.11/site-packages/streamlit/runtime/scriptrunner/exec_code.py", line 88, in exec_func_with_error_handling
+    result = func()
+             ^^^^^^
+File "/home/runner/New-Repl-1/.pythonlibs/lib/python3.11/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 579, in code_to_exec
+    exec(code, module.__dict__)
+File "/home/runner/New-Repl-1/main.py", line 50, in <module>
+    main()
+File "/home/runner/New-Repl-1/main.py", line 47, in main
+    render_report_section()
+File "/home/runner/New-Repl-1/components/report_view.py", line 25, in render_report_section
+    st.session_state.generated_report = generate_compliance_report()
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/New-Repl-1/components/report_view.py", line 43, in generate_compliance_report
+    report_content = gpt_processor.generate_report(analysis_data)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/New-Repl-1/processors/gpt_processor.py", line 320, in generate_report
+    "content": json.dumps(analysis_results)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/nix/store/f98g7xbckgqbkagdvpzc2r6lv3h1p9ki-python3-3.11.9/lib/python3.11/json/__init__.py", line 231, in dumps
+    return _default_encoder.encode(obj)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/nix/store/f98g7xbckgqbkagdvpzc2r6lv3h1p9ki-python3-3.11.9/lib/python3.11/json/encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/nix/store/f98g7xbckgqbkagdvpzc2r6lv3h1p9ki-python3-3.11.9/lib/python3.11/json/encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+File "/nix/store/f98g7xbckgqbkagdvpzc2r6lv3h1p9ki-python3-3.11.9/lib/python3.11/json/encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
