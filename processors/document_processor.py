@@ -1,11 +1,12 @@
 import tiktoken
 from utils.text_splitter import hierarchical_split
-from processors.gpt_processor import extract_sections, extract_requirements
+from processors.gpt_processor import GPTProcessor
 from typing import List, Dict
 
 class DocumentProcessor:
     def __init__(self):
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        self.gpt_processor = GPTProcessor()
     
     def count_tokens(self, text: str) -> int:
         return len(self.tokenizer.encode(text))
@@ -18,14 +19,14 @@ class DocumentProcessor:
         # Extract document structure
         sections = []
         for chunk in initial_chunks:
-            chunk_sections = extract_sections(chunk)
-            sections.extend(chunk_sections)
+            chunk_sections = self.gpt_processor.extract_sections(chunk)
+            sections.extend(chunk_sections['sections'])
         
         # Extract requirements and prohibitions
         requirements = []
         prohibitions = []
         for section in sections:
-            section_reqs = extract_requirements(section['text'])
+            section_reqs = self.gpt_processor.extract_requirements(section['text'])
             requirements.extend(section_reqs['requirements'])
             prohibitions.extend(section_reqs['prohibitions'])
         
@@ -42,8 +43,8 @@ class DocumentProcessor:
         sections = []
         
         for chunk in initial_chunks:
-            chunk_sections = extract_sections(chunk)
-            sections.extend(chunk_sections)
+            chunk_sections = self.gpt_processor.extract_sections(chunk)
+            sections.extend(chunk_sections['sections'])
         
         return {
             'sections': sections
