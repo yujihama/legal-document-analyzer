@@ -31,18 +31,32 @@ class GPTProcessor:
     
     def extract_sections(self, text: str) -> Dict:
         """Extract document sections using GPT-4o"""
+        import streamlit as st
+        
+        prompt = self.get_prompt('extract_sections')
+        with st.expander("Debug: extract_sections"):
+            st.write("**Input Text:**")
+            st.text(text[:500] + "..." if len(text) > 500 else text)
+            st.write("**Prompt:**")
+            st.code(prompt)
+        
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {
                     "role": "system",
-                    "content": self.get_prompt('extract_sections')
+                    "content": prompt
                 },
                 {"role": "user", "content": text}
             ],
             response_format={"type": "json_object"}
         )
+        
         result = json.loads(response.choices[0].message.content)
+        with st.expander("Debug: extract_sections response"):
+            st.write("**Raw Response:**")
+            st.json(result)
+        
         if 'sections' not in result:
             # If GPT doesn't return the expected format, create it
             return {
@@ -57,18 +71,32 @@ class GPTProcessor:
     
     def extract_requirements(self, text: str) -> Dict:
         """Extract requirements and prohibitions from text"""
+        import streamlit as st
+        
+        prompt = self.get_prompt('extract_requirements')
+        with st.expander("Debug: extract_requirements"):
+            st.write("**Input Text:**")
+            st.text(text[:500] + "..." if len(text) > 500 else text)
+            st.write("**Prompt:**")
+            st.code(prompt)
+        
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {
                     "role": "system",
-                    "content": self.get_prompt('extract_requirements')
+                    "content": prompt
                 },
                 {"role": "user", "content": text}
             ],
             response_format={"type": "json_object"}
         )
+        
         result = json.loads(response.choices[0].message.content)
+        with st.expander("Debug: extract_requirements response"):
+            st.write("**Raw Response:**")
+            st.json(result)
+        
         # Ensure the response has the required keys
         if 'requirements' not in result or 'prohibitions' not in result:
             return {
@@ -79,12 +107,23 @@ class GPTProcessor:
     
     def analyze_compliance(self, requirement: str, regulation: str) -> Dict:
         """Analyze if regulation satisfies requirement"""
+        import streamlit as st
+        
+        prompt = self.get_prompt('analyze_compliance')
+        with st.expander("Debug: analyze_compliance"):
+            st.write("**Requirement:**")
+            st.text(requirement)
+            st.write("**Regulation:**")
+            st.text(regulation)
+            st.write("**Prompt:**")
+            st.code(prompt)
+        
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {
                     "role": "system",
-                    "content": self.get_prompt('analyze_compliance')
+                    "content": prompt
                 },
                 {
                     "role": "user",
@@ -93,7 +132,12 @@ class GPTProcessor:
             ],
             response_format={"type": "json_object"}
         )
+        
         result = json.loads(response.choices[0].message.content)
+        with st.expander("Debug: analyze_compliance response"):
+            st.write("**Raw Response:**")
+            st.json(result)
+        
         # Ensure all required fields are present
         if not all(k in result for k in ['compliant', 'score', 'explanation']):
             return {
