@@ -82,7 +82,7 @@ class GPTProcessor:
 
     def extract_requirements(self,
                              text: str,
-                             num_extractions: int = 3,
+                             num_extractions: int = 1,
                              threshold: float = 0.6) -> Dict:
         """Extract requirements and prohibitions from text using multiple extractions and majority voting"""
         import streamlit as st
