@@ -199,20 +199,23 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
         # Create args for each requirement
         process_args = [(req, stored_texts, cluster_data) for req in all_reqs]
         
-        # Calculate optimal number of processes (use half of CPU cores)
-        num_processes = max(1, multiprocessing.cpu_count() // 2)
+        # Use a fixed small number of processes and fixed chunk size for stability
+        num_processes = 2  # Limit to 2 processes
+        chunk_size = 2     # Process 2 requirements at a time
         
         # Create a progress bar
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         # Process requirements in parallel with limited processes
-        with multiprocessing.Pool(processes=min(num_processes, 4)) as pool:
+        with multiprocessing.Pool(processes=num_processes) as pool:
             results = []
             try:
-                # Process requirements in larger chunks for better performance
-                chunk_size = max(1, total_reqs // (num_processes * 4))
-                for i, result in enumerate(pool.imap_unordered(process_requirement, process_args, chunksize=chunk_size)):
+                # Use map instead of imap_unordered for better stability
+                completed_results = pool.map(process_requirement, process_args, chunksize=chunk_size)
+                
+                # Process results sequentially after parallel computation
+                for i, result in enumerate(completed_results):
                     if result:  # Only append valid results
                         results.append(result)
                         # Update progress
