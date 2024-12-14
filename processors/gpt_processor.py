@@ -165,12 +165,17 @@ class GPTProcessor:
     
     def generate_report(self, analysis_results: Dict) -> str:
         """Generate compliance report in markdown format"""
+        prompts = {
+            'ja': "以下の分析結果に基づいて、詳細なコンプライアンスレポートをマークダウン形式で生成してください。要求事項の遵守状況、ギャップ、改善提案を含めてください。",
+            'en': "Generate a detailed compliance report in markdown format based on the analysis results. Include compliance status, gaps, and improvement suggestions."
+        }
+        
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {
                     "role": "system",
-                    "content": "Generate a detailed compliance report in markdown format based on the analysis results."
+                    "content": prompts[self.language]
                 },
                 {
                     "role": "user",

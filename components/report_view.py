@@ -5,10 +5,19 @@ from models.compliance_model import ComplianceReport
 from datetime import datetime
 
 def render_report_section():
-    st.header("Compliance Report")
+    headers = {
+        'ja': "コンプライアンスレポート",
+        'en': "Compliance Report"
+    }
+    info_messages = {
+        'ja': "先に分析を完了してください",
+        'en': "Please complete the analysis first"
+    }
+    
+    st.header(headers[st.session_state.language])
     
     if not st.session_state.get('compliance_results'):
-        st.info("Please complete the analysis first")
+        st.info(info_messages[st.session_state.language])
         return
     
     if 'generated_report' not in st.session_state:
