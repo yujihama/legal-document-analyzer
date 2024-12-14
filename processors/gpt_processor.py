@@ -34,11 +34,11 @@ class GPTProcessor:
         import streamlit as st
         
         prompt = self.get_prompt('extract_sections')
-        with st.expander("Debug: extract_sections"):
-            st.write("**Input Text:**")
-            st.text(text[:500] + "..." if len(text) > 500 else text)
-            st.write("**Prompt:**")
-            st.code(prompt)
+        debug_info = {
+            'title': 'Extract Sections',
+            'input': f"Text: {text[:500]}...\nPrompt: {prompt}",
+            'response': None
+        }
         
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
@@ -53,9 +53,15 @@ class GPTProcessor:
         )
         
         result = json.loads(response.choices[0].message.content)
-        with st.expander("Debug: extract_sections response"):
-            st.write("**Raw Response:**")
-            st.json(result)
+        debug_info['response'] = result
+        
+        # Save debug info to session state
+        if 'processing_results' not in st.session_state:
+            st.session_state.processing_results = {
+                'legal': {'debug_info': []},
+                'internal': {'debug_info': []}
+            }
+        st.session_state.processing_results['legal']['debug_info'].append(debug_info)
         
         if 'sections' not in result:
             # If GPT doesn't return the expected format, create it
@@ -74,11 +80,11 @@ class GPTProcessor:
         import streamlit as st
         
         prompt = self.get_prompt('extract_requirements')
-        with st.expander("Debug: extract_requirements"):
-            st.write("**Input Text:**")
-            st.text(text[:500] + "..." if len(text) > 500 else text)
-            st.write("**Prompt:**")
-            st.code(prompt)
+        debug_info = {
+            'title': 'Extract Requirements',
+            'input': f"Text: {text[:500]}...\nPrompt: {prompt}",
+            'response': None
+        }
         
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
@@ -93,9 +99,15 @@ class GPTProcessor:
         )
         
         result = json.loads(response.choices[0].message.content)
-        with st.expander("Debug: extract_requirements response"):
-            st.write("**Raw Response:**")
-            st.json(result)
+        debug_info['response'] = result
+        
+        # Save debug info to session state
+        if 'processing_results' not in st.session_state:
+            st.session_state.processing_results = {
+                'legal': {'debug_info': []},
+                'internal': {'debug_info': []}
+            }
+        st.session_state.processing_results['legal']['debug_info'].append(debug_info)
         
         # Ensure the response has the required keys
         if 'requirements' not in result or 'prohibitions' not in result:
@@ -110,13 +122,11 @@ class GPTProcessor:
         import streamlit as st
         
         prompt = self.get_prompt('analyze_compliance')
-        with st.expander("Debug: analyze_compliance"):
-            st.write("**Requirement:**")
-            st.text(requirement)
-            st.write("**Regulation:**")
-            st.text(regulation)
-            st.write("**Prompt:**")
-            st.code(prompt)
+        debug_info = {
+            'title': 'Analyze Compliance',
+            'input': f"Requirement: {requirement}\nRegulation: {regulation}\nPrompt: {prompt}",
+            'response': None
+        }
         
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
@@ -134,9 +144,15 @@ class GPTProcessor:
         )
         
         result = json.loads(response.choices[0].message.content)
-        with st.expander("Debug: analyze_compliance response"):
-            st.write("**Raw Response:**")
-            st.json(result)
+        debug_info['response'] = result
+        
+        # Save debug info to session state
+        if 'processing_results' not in st.session_state:
+            st.session_state.processing_results = {
+                'legal': {'debug_info': []},
+                'internal': {'debug_info': []}
+            }
+        st.session_state.processing_results['internal']['debug_info'].append(debug_info)
         
         # Ensure all required fields are present
         if not all(k in result for k in ['compliant', 'score', 'explanation']):

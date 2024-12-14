@@ -36,6 +36,13 @@ def render_upload_section():
     if st.session_state.documents['legal'] and st.session_state.documents['internal']:
         if st.button("Process Documents"):
             with st.spinner("Processing documents..."):
+                # Initialize processing results in session state if not exists
+                if 'processing_results' not in st.session_state:
+                    st.session_state.processing_results = {
+                        'legal': {'debug_info': []},
+                        'internal': {'debug_info': []}
+                    }
+                
                 processor = DocumentProcessor(language=st.session_state.language)
                 
                 # Process legal document
@@ -67,6 +74,24 @@ def render_upload_section():
                     'legal': legal_results,
                     'internal': internal_results
                 }
+                
+                # Debug information display
+                st.subheader("処理詳細")
+                with st.expander("Legal Document Processing Details"):
+                    for debug_info in st.session_state.processing_results['legal']['debug_info']:
+                        with st.expander(debug_info['title']):
+                            st.write("**Input:**")
+                            st.code(debug_info['input'])
+                            st.write("**Response:**")
+                            st.json(debug_info['response'])
+                
+                with st.expander("Internal Document Processing Details"):
+                    for debug_info in st.session_state.processing_results['internal']['debug_info']:
+                        with st.expander(debug_info['title']):
+                            st.write("**Input:**")
+                            st.code(debug_info['input'])
+                            st.write("**Response:**")
+                            st.json(debug_info['response'])
                 
                 st.session_state.current_step = 'analysis'
                 st.success("全ての文書の処理が完了しました！")
