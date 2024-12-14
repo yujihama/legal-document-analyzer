@@ -4,9 +4,9 @@ from processors.gpt_processor import GPTProcessor
 from typing import List, Dict
 
 class DocumentProcessor:
-    def __init__(self):
+    def __init__(self, language='ja'):
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
-        self.gpt_processor = GPTProcessor()
+        self.gpt_processor = GPTProcessor(language=language)
     
     def count_tokens(self, text: str) -> int:
         return len(self.tokenizer.encode(text))

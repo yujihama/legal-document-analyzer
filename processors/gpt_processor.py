@@ -7,8 +7,27 @@ from typing import Dict, List
 MODEL_NAME = "gpt-4o"
 
 class GPTProcessor:
-    def __init__(self):
+    def __init__(self, language='ja'):
         self.client = OpenAI()
+        self.language = language
+        
+    def get_prompt(self, key: str) -> str:
+        """Get prompt based on language setting"""
+        prompts = {
+            'extract_sections': {
+                'ja': "文書のセクションとその階層構造を抽出してください。'sections'キーを持つJSONで返してください。各セクションは'title'と'text'フィールドを持ちます。",
+                'en': "Extract the document sections and their hierarchy. Return as JSON with a 'sections' key containing an array of sections. Each section should have 'title' and 'text' fields."
+            },
+            'extract_requirements': {
+                'ja': "テキストから要求事項（〜しなければならない）と禁止事項（〜してはならない）を抽出してください。'requirements'と'prohibitions'の配列を持つJSONで返してください。各項目は'text'と'source_section'フィールドを持ちます。",
+                'en': "Extract requirements ('must do') and prohibitions ('must not do') from the text. Return JSON with 'requirements' and 'prohibitions' arrays. Each item should have 'text' and 'source_section' fields."
+            },
+            'analyze_compliance': {
+                'ja': "規制が要件を満たしているか分析してください。以下のフィールドを持つJSONで返してください：compliant（真偽値）、score（0から1の数値）、explanation（説明文）。",
+                'en': "Analyze if the regulation satisfies the requirement. Return JSON with the following fields: compliant (boolean), score (float between 0 and 1), explanation (string)."
+            }
+        }
+        return prompts[key][self.language]
     
     def extract_sections(self, text: str) -> Dict:
         """Extract document sections using GPT-4o"""
@@ -17,7 +36,7 @@ class GPTProcessor:
             messages=[
                 {
                     "role": "system",
-                    "content": "Extract the document sections and their hierarchy. Return as JSON with a 'sections' key containing an array of sections. Each section should have 'title' and 'text' fields."
+                    "content": self.get_prompt('extract_sections')
                 },
                 {"role": "user", "content": text}
             ],
@@ -43,7 +62,7 @@ class GPTProcessor:
             messages=[
                 {
                     "role": "system",
-                    "content": "Extract requirements ('must do') and prohibitions ('must not do') from the text. Return JSON with 'requirements' and 'prohibitions' arrays. Each item should have 'text' and 'source_section' fields."
+                    "content": self.get_prompt('extract_requirements')
                 },
                 {"role": "user", "content": text}
             ],
@@ -65,7 +84,7 @@ class GPTProcessor:
             messages=[
                 {
                     "role": "system",
-                    "content": "Analyze if the regulation satisfies the requirement. Return JSON with the following fields: compliant (boolean), score (float between 0 and 1), explanation (string)."
+                    "content": self.get_prompt('analyze_compliance')
                 },
                 {
                     "role": "user",

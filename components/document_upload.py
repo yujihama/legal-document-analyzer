@@ -36,7 +36,7 @@ def render_upload_section():
     if st.session_state.documents['legal'] and st.session_state.documents['internal']:
         if st.button("Process Documents"):
             with st.spinner("Processing documents..."):
-                processor = DocumentProcessor()
+                processor = DocumentProcessor(language=st.session_state.language)
                 
                 # Process legal document
                 st.info("Step 1: Processing legal document...")
