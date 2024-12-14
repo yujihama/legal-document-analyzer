@@ -33,6 +33,46 @@ def render_upload_section():
             st.session_state.documents['internal'] = text
             st.success("Internal regulations uploaded successfully")
     
+    # Display processing results if available
+    if 'analysis_results' in st.session_state and st.session_state.analysis_results:
+        st.subheader("処理結果")
+        
+        # Display legal document results
+        st.markdown("### 法令文書の解析結果")
+        legal_results = st.session_state.analysis_results['legal']
+        st.write(f"抽出されたセクション数: {len(legal_results['sections'])}")
+        st.write(f"要求事項数: {len(legal_results['requirements'])}")
+        st.write(f"禁止事項数: {len(legal_results['prohibitions'])}")
+        
+        # Display internal document results
+        st.markdown("### 社内規定文書の解析結果")
+        internal_results = st.session_state.analysis_results['internal']
+        st.write(f"抽出されたセクション数: {len(internal_results['sections'])}")
+        
+        # Debug information display
+        if 'processing_results' in st.session_state:
+            st.subheader("処理詳細")
+            
+            # Legal document processing details
+            st.markdown("### 法令文書の処理詳細")
+            for debug_info in st.session_state.processing_results['legal']['debug_info']:
+                st.markdown(f"#### {debug_info['title']}")
+                st.write("**Input:**")
+                st.code(debug_info['input'])
+                st.write("**Response:**")
+                st.json(debug_info['response'])
+                st.markdown("---")
+            
+            # Internal document processing details
+            st.markdown("### 社内規定文書の処理詳細")
+            for debug_info in st.session_state.processing_results['internal']['debug_info']:
+                st.markdown(f"#### {debug_info['title']}")
+                st.write("**Input:**")
+                st.code(debug_info['input'])
+                st.write("**Response:**")
+                st.json(debug_info['response'])
+                st.markdown("---")
+    
     if st.session_state.documents['legal'] and st.session_state.documents['internal']:
         if st.button("Process Documents"):
             with st.spinner("Processing documents..."):
@@ -52,12 +92,6 @@ def render_upload_section():
                 )
                 st.success("Legal document processed")
                 
-                # Display legal document results
-                st.subheader("法令文書の解析結果")
-                st.write(f"抽出されたセクション数: {len(legal_results['sections'])}")
-                st.write(f"要求事項数: {len(legal_results['requirements'])}")
-                st.write(f"禁止事項数: {len(legal_results['prohibitions'])}")
-                
                 # Process internal document
                 st.info("Step 2: Processing internal document...")
                 internal_results = processor.process_internal_document(
@@ -65,38 +99,11 @@ def render_upload_section():
                 )
                 st.success("Internal document processed")
                 
-                # Display internal document results
-                st.subheader("社内規定文書の解析結果")
-                st.write(f"抽出されたセクション数: {len(internal_results['sections'])}")
-                
                 st.info("Step 3: Combining results...")
                 st.session_state.analysis_results = {
                     'legal': legal_results,
                     'internal': internal_results
                 }
-                
-                # Debug information display
-                st.subheader("処理詳細")
-                
-                # Legal document processing details
-                st.markdown("### 法令文書の処理詳細")
-                for debug_info in st.session_state.processing_results['legal']['debug_info']:
-                    st.markdown(f"#### {debug_info['title']}")
-                    st.write("**Input:**")
-                    st.code(debug_info['input'])
-                    st.write("**Response:**")
-                    st.json(debug_info['response'])
-                    st.markdown("---")
-                
-                # Internal document processing details
-                st.markdown("### 社内規定文書の処理詳細")
-                for debug_info in st.session_state.processing_results['internal']['debug_info']:
-                    st.markdown(f"#### {debug_info['title']}")
-                    st.write("**Input:**")
-                    st.code(debug_info['input'])
-                    st.write("**Response:**")
-                    st.json(debug_info['response'])
-                    st.markdown("---")
                 
                 st.session_state.current_step = 'analysis'
                 st.success("全ての文書の処理が完了しました！")
