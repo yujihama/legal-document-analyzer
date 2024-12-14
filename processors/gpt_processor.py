@@ -10,20 +10,31 @@ class GPTProcessor:
     def __init__(self):
         self.client = OpenAI()
     
-    def extract_sections(self, text: str) -> List[Dict]:
+    def extract_sections(self, text: str) -> Dict:
         """Extract document sections using GPT-4o"""
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {
                     "role": "system",
-                    "content": "Extract the document sections and their hierarchy. Return as JSON."
+                    "content": "Extract the document sections and their hierarchy. Return as JSON with a 'sections' key containing an array of sections. Each section should have 'title' and 'text' fields."
                 },
                 {"role": "user", "content": text}
             ],
             response_format={"type": "json_object"}
         )
-        return json.loads(response.choices[0].message.content)
+        result = json.loads(response.choices[0].message.content)
+        if 'sections' not in result:
+            # If GPT doesn't return the expected format, create it
+            return {
+                'sections': [
+                    {
+                        'title': 'Section 1',
+                        'text': text
+                    }
+                ]
+            }
+        return result
     
     def extract_requirements(self, text: str) -> Dict:
         """Extract requirements and prohibitions from text"""
