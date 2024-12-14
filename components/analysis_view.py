@@ -272,9 +272,15 @@ def display_compliance_results(results):
                             'count': 0,
                             'summary': cluster.get('summary', ''),
                             'representative_text': cluster.get('representative_text', ''),
-                            'texts': cluster.get('texts', [])  # 追加: テキストリストの保持
+                            'texts': cluster.get('texts', []),
+                            'requirements': []  # 要件のリストを保持
                         }
                     clusters[cluster_id]['count'] += 1
+                    # 要件情報を保存
+                    clusters[cluster_id]['requirements'].append({
+                        'text': result['requirement']['text'],
+                        'type': 'prohibition' if result['requirement'].get('is_prohibition') else 'requirement'
+                    })
             
             # Create cluster distribution chart
             cluster_counts = [{'id': k, 'count': v['count']} for k, v in clusters.items()]
@@ -302,7 +308,10 @@ def display_compliance_results(results):
                 st.write(cluster_info['representative_text'])
                 st.markdown("**クラスタの要約:**")
                 st.write(cluster_info['summary'])
-                st.markdown(f"**このクラスタに含まれる要件数:** {cluster_info['count']}")
-                st.markdown("**クラスタ内のテキスト一覧:**")
+                st.markdown(f"**このクラスタに含まれる要件数:** {len(cluster_info['requirements'])}")
+                st.markdown("**クラスタ内の要件一覧:**")
+                for i, req in enumerate(cluster_info.get('requirements', []), 1):
+                    st.write(f"{i}. [{req['type']}] {req['text'][:100]}...")
+                st.markdown("**クラスタ内の関連テキスト一覧:**")
                 for i, text in enumerate(cluster_info.get('texts', []), 1):
                     st.write(f"{i}. {text[:30]}...")
