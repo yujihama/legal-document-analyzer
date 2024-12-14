@@ -1,7 +1,7 @@
 import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
-from processors.embedding_processor import EmbeddingProcessor
+from processors.embedding_processor import EmbeddingProcessor, ClusterInfo
 from processors.gpt_processor import GPTProcessor
 
 def render_analysis_section():
@@ -144,9 +144,14 @@ def process_requirement(args):
             distances = []
             for cluster in clusters:
                 if cluster.centroid is not None:
-                    distance = float(np.linalg.norm(query_embedding - cluster.centroid))
-                    distances.append((distance, cluster))
-            closest_cluster = min(distances, key=lambda x: x[0])[1] if distances else clusters[0]
+                    try:
+                        distance = float(np.linalg.norm(query_embedding - cluster.centroid))
+                        distances.append((distance, cluster))
+                    except Exception as e:
+                        print(f"Error calculating distance for cluster {cluster.id}: {e}")
+                        continue
+            
+            closest_cluster = min(distances, key=lambda x: x[0])[1] if distances else (clusters[0] if clusters else None)
         except Exception as e:
             print(f"Error finding closest cluster: {e}")
             closest_cluster = clusters[0] if clusters else None
@@ -202,19 +207,21 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
         status_text = st.empty()
         
         # Process requirements in parallel with limited processes
-        with multiprocessing.Pool(processes=num_processes) as pool:
+        with multiprocessing.Pool(processes=min(num_processes, 4)) as pool:
             results = []
             try:
-                # Process requirements in chunks to show better progress
-                for i, result in enumerate(pool.imap_unordered(process_requirement, process_args, chunksize=1)):
+                # Process requirements in larger chunks for better performance
+                chunk_size = max(1, total_reqs // (num_processes * 4))
+                for i, result in enumerate(pool.imap_unordered(process_requirement, process_args, chunksize=chunk_size)):
                     if result:  # Only append valid results
                         results.append(result)
-                    # Update progress
-                    progress = (i + 1) / total_reqs
-                    progress_bar.progress(progress)
-                    status_text.text(f"分析進捗: {i + 1}/{total_reqs} 要件を処理完了")
+                        # Update progress
+                        progress = (i + 1) / total_reqs
+                        progress_bar.progress(progress)
+                        status_text.text(f"分析進捗: {i + 1}/{total_reqs} 要件を処理完了")
             except Exception as e:
                 st.error(f"並列処理中にエラーが発生しました: {str(e)}")
+                print(f"Parallel processing error details: {e}")
                 results = []  # Reset results on error
         
         # Clear progress indicators
