@@ -234,15 +234,61 @@ def display_compliance_results(results):
     ))
     non_compliant = len(results) - compliant
     
-    fig = go.Figure(data=[
-        go.Pie(
-            labels=['Compliant', 'Non-Compliant'],
-            values=[compliant, non_compliant],
-            marker_colors=['#2ecc71', '#e74c3c']
-        )
-    ])
-    fig.update_layout(title="Compliance Status Overview")
-    st.plotly_chart(fig)
+    col1, col2 = st.columns(2)
     
-    # Detailed Results section is now handled in the main display section
-    # Removed duplicate detailed analysis display
+    with col1:
+        # Compliance Status Pie Chart
+        fig_pie = go.Figure(data=[
+            go.Pie(
+                labels=['遵守', '未遵守'],
+                values=[compliant, non_compliant],
+                marker_colors=['#2ecc71', '#e74c3c']
+            )
+        ])
+        fig_pie.update_layout(title="遵守状況の概要")
+        st.plotly_chart(fig_pie)
+    
+    with col2:
+        # Display Cluster Information
+        st.subheader("クラスタリング分析結果")
+        if any(r.get('cluster') for r in results):
+            clusters = {}
+            for result in results:
+                cluster = result.get('cluster', {})
+                cluster_id = cluster.get('id')
+                if cluster_id is not None:
+                    if cluster_id not in clusters:
+                        clusters[cluster_id] = {
+                            'count': 0,
+                            'summary': cluster.get('summary', ''),
+                            'representative_text': cluster.get('representative_text', '')
+                        }
+                    clusters[cluster_id]['count'] += 1
+            
+            # Create cluster distribution chart
+            cluster_counts = [{'id': k, 'count': v['count']} for k, v in clusters.items()]
+            if cluster_counts:
+                fig_cluster = go.Figure(data=[
+                    go.Bar(
+                        x=[f"クラスタ {c['id']}" for c in cluster_counts],
+                        y=[c['count'] for c in cluster_counts],
+                        marker_color='#3498db'
+                    )
+                ])
+                fig_cluster.update_layout(
+                    title="要件のクラスタ分布",
+                    xaxis_title="クラスタ",
+                    yaxis_title="要件数"
+                )
+                st.plotly_chart(fig_cluster)
+    
+    # Display detailed cluster information
+    st.subheader("クラスタの詳細情報")
+    if any(r.get('cluster') for r in results):
+        for cluster_id, cluster_info in clusters.items():
+            with st.expander(f"クラスタ {cluster_id} の詳細"):
+                st.markdown("**代表的なテキスト:**")
+                st.write(cluster_info['representative_text'])
+                st.markdown("**クラスタの要約:**")
+                st.write(cluster_info['summary'])
+                st.markdown(f"**このクラスタに含まれる要件数:** {cluster_info['count']}")
