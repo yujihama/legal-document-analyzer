@@ -355,26 +355,24 @@ class GPTProcessor:
                     'en': "Generate a compliance overview based on the following statistics:\n{stats}"
                 },
                 'requirements': {
-                    'ja': "以下の要件グループについて分析してください（{start}から{end}まで）：\n{reqs}",
-                    'en': "Analyze the following group of requirements ({start} to {end}):\n{reqs}"
+                    'ja': "以下の要件グループについて分析してください（{start}から{end}まで）：\n{reqs}\n\n文体と形式を統一するため、以下の形式で記述してください：\n1. 各要件の概要\n2. コンプライアンス状況\n3. 具体的な対応状況",
+                    'en': "Analyze the following group of requirements ({start} to {end}):\n{reqs}\n\nTo maintain consistent style, please follow this format:\n1. Requirement overview\n2. Compliance status\n3. Specific measures taken"
                 },
                 'recommendations': {
-                    'ja': "分析結果に基づいて、主な改善提案を生成してください：\n{gaps}",
-                    'en': "Generate key improvement suggestions based on the analysis:\n{gaps}"
+                    'ja': "未対応の要件に基づいて、主な改善提案を生成してください。優先度の高い上位5件に焦点を当ててください。",
+                    'en': "Generate key improvement suggestions based on non-compliant requirements. Focus on top 5 high-priority items."
                 }
             }
             return prompts[section_type][self.language]
         
-        # Generate overview section
+        # Generate overview section using minimal statistics
         stats = {
             'total_requirements': len(analysis_results.get('compliance_results', [])),
             'compliant_count': sum(1 for r in analysis_results.get('compliance_results', [])
                                  if any(m['analysis']['compliant'] for m in r['matches'])),
-            'document_info': {
-                'legal': analysis_results.get('documents', {}).get('legal', ''),
-                'internal': analysis_results.get('documents', {}).get('internal', '')
-            }
+            'compliance_rate': None  # Will be calculated
         }
+        stats['compliance_rate'] = (stats['compliant_count'] / stats['total_requirements']) * 100 if stats['total_requirements'] > 0 else 0
         
         overview_response = self.client.chat.completions.create(
             model=MODEL_NAME,
@@ -383,19 +381,39 @@ class GPTProcessor:
                 "content": get_section_prompt('summary')
             }, {
                 "role": "user",
-                "content": json.dumps(stats)
-            }]
+                "content": json.dumps({
+                    'stats': stats,
+                    'format': 'markdown'
+                })
+            }],
+            response_format={"type": "json_object"}
         )
         
-        overview_section = overview_response.choices[0].message.content
+        overview_section = json.loads(overview_response.choices[0].message.content).get('summary', '')
         
-        # Process requirements in chunks
+        # Process requirements in small chunks with minimal data
         requirements_sections = []
         chunk_size = 5  # Process 5 requirements at a time
         compliance_results = analysis_results.get('compliance_results', [])
         
         for i in range(0, len(compliance_results), chunk_size):
             chunk = compliance_results[i:i + chunk_size]
+            
+            # Prepare minimal data for each requirement
+            simplified_chunk = []
+            for req in chunk:
+                simplified_req = {
+                    'text': req['requirement']['text'],
+                    'type': 'prohibition' if req['requirement'].get('is_prohibition') else 'requirement',
+                    'matches': [{
+                        'text': m['text'][:200],  # Limit text length
+                        'analysis': {
+                            'compliant': m['analysis']['compliant'],
+                            'score': m['analysis']['score']
+                        }
+                    } for m in req['matches'][:3]]  # Limit to top 3 matches
+                }
+                simplified_chunk.append(simplified_req)
             
             req_response = self.client.chat.completions.create(
                 model=MODEL_NAME,
@@ -404,19 +422,25 @@ class GPTProcessor:
                     "content": get_section_prompt('requirements').format(
                         start=i+1,
                         end=min(i+chunk_size, len(compliance_results)),
-                        reqs=json.dumps(chunk)
+                        reqs=json.dumps(simplified_chunk)
                     )
-                }, {
-                    "role": "user",
-                    "content": json.dumps(chunk)
-                }]
+                }],
+                response_format={"type": "json_object"}
             )
             
-            requirements_sections.append(req_response.choices[0].message.content)
+            section_content = json.loads(req_response.choices[0].message.content).get('analysis', '')
+            requirements_sections.append(section_content)
         
-        # Generate recommendations based on non-compliant items
-        gaps = [r for r in compliance_results 
-               if not any(m['analysis']['compliant'] for m in r['matches'])]
+        # Generate recommendations based on top 5 non-compliant items only
+        non_compliant = [r for r in compliance_results 
+                        if not any(m['analysis']['compliant'] for m in r['matches'])]
+        top_gaps = non_compliant[:5]  # Only process top 5 gaps
+        
+        simplified_gaps = [{
+            'text': gap['requirement']['text'],
+            'type': 'prohibition' if gap['requirement'].get('is_prohibition') else 'requirement',
+            'highest_score': max((m['analysis'].get('score', 0) for m in gap['matches']), default=0)
+        } for gap in top_gaps]
         
         recommendations_response = self.client.chat.completions.create(
             model=MODEL_NAME,
@@ -425,11 +449,15 @@ class GPTProcessor:
                 "content": get_section_prompt('recommendations')
             }, {
                 "role": "user",
-                "content": json.dumps(gaps[:5])  # Process top 5 gaps
-            }]
+                "content": json.dumps({
+                    'gaps': simplified_gaps,
+                    'format': 'markdown'
+                })
+            }],
+            response_format={"type": "json_object"}
         )
         
-        # Combine all sections using string concatenation instead of f-string
+        # Combine all sections using string concatenation
         report_parts = [
             "# コンプライアンス分析レポート\n\n",
             "## 概要\n",
@@ -437,11 +465,10 @@ class GPTProcessor:
             "## 詳細分析\n",
             "\n\n".join(requirements_sections) + "\n\n",
             "## 改善提案\n",
-            recommendations_response.choices[0].message.content
+            json.loads(recommendations_response.choices[0].message.content).get('recommendations', '')
         ]
-        report = "".join(report_parts)
         
-        return report
+        return "".join(report_parts)
 
     @retry_on_rate_limit()
     @retry_on_rate_limit()
