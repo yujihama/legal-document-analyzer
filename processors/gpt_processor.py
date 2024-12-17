@@ -125,6 +125,7 @@ class GPTProcessor:
                     "content": context_prompt + text if context_prompt else text
                 }],
                 response_format={"type": "json_object"})
+            st.text(context_prompt + text if context_prompt else text)
 
             result = json.loads(response.choices[0].message.content)
             debug_info['response'] = result
