@@ -14,9 +14,21 @@ def retry_on_rate_limit(max_retries=3, wait_time=60):
                     return func(*args, **kwargs)
                 except RateLimitError as e:
                     retries += 1
+                    # ユーザーに分かりやすい形でプロンプト内容を表示
+                    if 'messages' in kwargs:
+                        print("\n=== プロンプト内容 ===")
+                        for msg in kwargs['messages']:
+                            role = msg.get('role', 'unknown')
+                            content = msg.get('content', '')
+                            if isinstance(content, str):
+                                print(f"{role}: {content[:200]}...")  # 最初の200文字のみ表示
+                            elif isinstance(content, list):  # マルチモーダル入力の場合
+                                print(f"{role}: [マルチモーダル入力]")
+                        print("==================\n")
+                    
                     if retries == max_retries:
                         raise e
-                    print(f"Rate limit exceeded. Waiting {wait_time} seconds before retry {retries}/{max_retries}")
+                    print(f"レート制限を超過しました。{wait_time}秒待機してから再試行します。(試行 {retries}/{max_retries})")
                     time.sleep(wait_time)
             return func(*args, **kwargs)
         return wrapper
