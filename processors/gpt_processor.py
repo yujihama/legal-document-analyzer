@@ -1,4 +1,27 @@
 import json
+import time
+from functools import wraps
+from openai import RateLimitError
+
+def retry_on_rate_limit(max_retries=3, wait_time=60):
+    """Decorator to retry function on RateLimitError with waiting period"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except RateLimitError as e:
+                    retries += 1
+                    if retries == max_retries:
+                        raise e
+                    print(f"Rate limit exceeded. Waiting {wait_time} seconds before retry {retries}/{max_retries}")
+                    time.sleep(wait_time)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
 from openai import OpenAI
 from typing import Dict, List
 
@@ -37,6 +60,7 @@ class GPTProcessor:
         }
         return prompts[key][self.language]
 
+    @retry_on_rate_limit()
     def extract_sections(self, text: str) -> Dict:
         """Extract document sections using GPT-4o"""
         import streamlit as st
@@ -80,6 +104,7 @@ class GPTProcessor:
             return {'sections': [{'title': 'Section 1', 'text': text}]}
         return result
 
+    @retry_on_rate_limit()
     def extract_requirements(self,
                              text: str,
                              context: Dict = None,
@@ -210,6 +235,8 @@ class GPTProcessor:
             'prohibitions': final_prohibitions
         }
 
+    @retry_on_rate_limit()
+    @retry_on_rate_limit()
     def analyze_compliance(self, requirement: str, regulation: str) -> Dict:
         """Analyze if regulation satisfies requirement"""
         import streamlit as st
@@ -260,6 +287,8 @@ class GPTProcessor:
             }
         return result
 
+    @retry_on_rate_limit()
+    @retry_on_rate_limit()
     def extract_hierarchical_context(self, text: str) -> Dict:
         """Extract hierarchical context information from the document"""
         prompt = """
@@ -302,6 +331,8 @@ class GPTProcessor:
 
         return json.loads(response.choices[0].message.content)
 
+    @retry_on_rate_limit()
+    @retry_on_rate_limit()
     def generate_report(self, analysis_results: Dict) -> str:
         """Generate compliance report in markdown format by processing chunks of data"""
         
@@ -400,6 +431,8 @@ class GPTProcessor:
         
         return report
 
+    @retry_on_rate_limit()
+    @retry_on_rate_limit()
     def summarize_cluster(self, texts: str) -> Dict:
         """Summarize a cluster of texts and generate a representative text"""
         prompts = {
