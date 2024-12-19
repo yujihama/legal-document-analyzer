@@ -360,16 +360,16 @@ class GPTProcessor:
             
             report_prompts = {
                 'summary': {
-                    'ja': "以下の統計情報に基づいて、コンプライアンス状況の概要を生成してください。統計情報：{stats}",
-                    'en': "Generate a compliance overview based on the following statistics. Statistics: {stats}"
+                    'ja': "以下の統計情報に基づいて、コンプライアンス状況の概要をJSON形式で生成してください。以下の形式で応答してください：{\"summary\":{\"overview\":\"全体的な状況の説明\",\"compliance_rate\":\"遵守率の説明\",\"key_findings\":[\"主要な発見事項1\",\"主要な発見事項2\"]}} 統計情報：{stats}",
+                    'en': "Generate a compliance overview in JSON format based on the following statistics. Please respond in the following format: {\"summary\":{\"overview\":\"overall situation\",\"compliance_rate\":\"compliance rate description\",\"key_findings\":[\"key finding 1\",\"key finding 2\"]}} Statistics: {stats}"
                 },
                 'requirements': {
-                    'ja': "以下の要件グループについて分析してください（{start}から{end}まで）：{reqs}",
-                    'en': "Analyze the following group of requirements ({start} to {end}): {reqs}"
+                    'ja': "以下の要件グループについて分析し、JSON形式で結果を返してください（{start}から{end}まで）：{reqs} 以下の形式で応答してください：{\"analysis\":{\"requirements\":[{\"overview\":\"要件の概要\",\"compliance_status\":\"遵守状況\",\"measures_taken\":\"具体的な対応状況\"}]}}",
+                    'en': "Analyze the following group of requirements ({start} to {end}) and return results in JSON format: {reqs} Please respond in the following format: {\"analysis\":{\"requirements\":[{\"overview\":\"requirement overview\",\"compliance_status\":\"compliance status\",\"measures_taken\":\"specific measures taken\"}]}}"
                 },
                 'recommendations': {
-                    'ja': "未対応の要件に基づいて、主な改善提案を生成してください。優先度の高い上位5件に焦点を当ててください。",
-                    'en': "Generate key improvement suggestions based on non-compliant requirements. Focus on top 5 high-priority items."
+                    'ja': "未対応の要件に基づいて、主な改善提案をJSON形式で生成してください。優先度の高い上位5件に焦点を当て、以下の形式で応答してください：{\"recommendations\":{\"priority_actions\":[{\"title\":\"改善提案のタイトル\",\"description\":\"詳細な説明\",\"priority\":\"優先度（高/中/低）\",\"impact\":\"想定される影響\"}]}}",
+                    'en': "Generate key improvement suggestions in JSON format based on non-compliant requirements. Focus on top 5 high-priority items and respond in the following format: {\"recommendations\":{\"priority_actions\":[{\"title\":\"improvement suggestion title\",\"description\":\"detailed description\",\"priority\":\"priority level (high/medium/low)\",\"impact\":\"expected impact\"}]}}"
                 }
             }
             
