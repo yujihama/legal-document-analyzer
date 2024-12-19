@@ -351,16 +351,100 @@ class GPTProcessor:
         def get_section_prompt(section_type: str) -> str:
             prompts = {
                 'summary': {
-                    'ja': "以下の統計情報に基づいて、コンプライアンス状況の概要をJSONで生成してください：\n{stats}",
-                    'en': "Generate a compliance overview(JSON) based on the following statistics:\n{stats}"
+                    'ja': """
+以下の統計情報に基づいて、コンプライアンス状況の概要を JSON 形式で生成してください。
+以下の形式で応答してください：
+{
+    "summary": {
+        "overview": "全体的な状況の説明",
+        "compliance_rate": "遵守率の説明",
+        "key_findings": ["主要な発見事項1", "主要な発見事項2", ...]
+    }
+}
+統計情報：{stats}
+""",
+                    'en': """
+Generate a compliance overview in JSON format based on the following statistics.
+Please respond in the following format:
+{
+    "summary": {
+        "overview": "overall situation description",
+        "compliance_rate": "compliance rate description",
+        "key_findings": ["key finding 1", "key finding 2", ...]
+    }
+}
+Statistics: {stats}
+"""
                 },
                 'requirements': {
-                    'ja': "以下の要件グループについて分析してください（{start}から{end}まで）：\n{reqs}\n\n文体と形式を統一するため、以下のJSON形式で記述してください：\n1. 各要件の概要\n2. コンプライアンス状況\n3. 具体的な対応状況",
-                    'en': "Analyze the following group of requirements ({start} to {end}):\n{reqs}\n\nTo maintain consistent style, please follow this format:\n1. Requirement overview\n2. Compliance status\n3. Specific measures taken"
+                    'ja': """
+以下の要件グループについて分析し、JSON形式で結果を返してください（{start}から{end}まで）：
+{reqs}
+
+以下の形式で応答してください：
+{
+    "analysis": {
+        "requirements": [
+            {
+                "overview": "要件の概要",
+                "compliance_status": "遵守状況",
+                "measures_taken": "具体的な対応状況"
+            }
+        ]
+    }
+}
+""",
+                    'en': """
+Analyze the following group of requirements ({start} to {end}) and return results in JSON format:
+{reqs}
+
+Please respond in the following format:
+{
+    "analysis": {
+        "requirements": [
+            {
+                "overview": "requirement overview",
+                "compliance_status": "compliance status",
+                "measures_taken": "specific measures taken"
+            }
+        ]
+    }
+}
+"""
                 },
                 'recommendations': {
-                    'ja': "未対応の要件に基づいて、主な改善提案をJSONで生成してください。優先度の高い上位5件に焦点を当ててください。",
-                    'en': "Generate key improvement suggestions based on non-compliant requirements. Focus on top 5 high-priority items."
+                    'ja': """
+未対応の要件に基づいて、主な改善提案をJSON形式で生成してください。
+優先度の高い上位5件に焦点を当て、以下の形式で応答してください：
+{
+    "recommendations": {
+        "priority_actions": [
+            {
+                "title": "改善提案のタイトル",
+                "description": "詳細な説明",
+                "priority": "優先度（高/中/低）",
+                "impact": "想定される影響"
+            }
+        ]
+    }
+}
+""",
+                    'en': """
+Generate key improvement suggestions in JSON format based on non-compliant requirements.
+Focus on top 5 high-priority items and respond in the following format:
+{
+    "recommendations": {
+        "priority_actions": [
+            {
+                "title": "improvement suggestion title",
+                "description": "detailed description",
+                "priority": "priority level (high/medium/low)",
+                "impact": "expected impact"
+            }
+        ]
+    }
+}
+"""
                 }
             }
             return prompts[section_type][self.language]
@@ -374,22 +458,57 @@ class GPTProcessor:
         }
         stats['compliance_rate'] = (stats['compliant_count'] / stats['total_requirements']) * 100 if stats['total_requirements'] > 0 else 0
         
+        # 詳細な統計情報の準備
+        detailed_stats = {
+            'stats': {
+                'total_requirements': stats['total_requirements'],
+                'compliant_count': stats['compliant_count'],
+                'compliance_rate': stats['compliance_rate'],
+                'risk_levels': {
+                    'high_risk': len([r for r in analysis_results.get('compliance_results', [])
+                                    if not any(m['analysis']['compliant'] for m in r['matches'])
+                                    and max((m['analysis'].get('score', 0) for m in r['matches']), default=0) < 0.3]),
+                    'medium_risk': len([r for r in analysis_results.get('compliance_results', [])
+                                    if not any(m['analysis']['compliant'] for m in r['matches'])
+                                    and 0.3 <= max((m['analysis'].get('score', 0) for m in r['matches']), default=0) < 0.7]),
+                    'low_risk': len([r for r in analysis_results.get('compliance_results', [])
+                                    if not any(m['analysis']['compliant'] for m in r['matches'])
+                                    and max((m['analysis'].get('score', 0) for m in r['matches']), default=0) >= 0.7])
+                },
+                'requirement_categories': {
+                    'critical': len([r for r in analysis_results.get('compliance_results', [])
+                                   if r['requirement'].get('is_prohibition', False)]),
+                    'standard': len([r for r in analysis_results.get('compliance_results', [])
+                                   if not r['requirement'].get('is_prohibition', False)])
+                }
+            }
+        }
+
         overview_response = self.client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{
                 "role": "system",
-                "content": get_section_prompt('summary')
+                "content": get_section_prompt('summary').format(stats=json.dumps(detailed_stats, ensure_ascii=False))
             }, {
                 "role": "user",
-                "content": json.dumps({
-                    'stats': stats,
-                    'format': 'markdown'
-                })
+                "content": ""
             }],
             response_format={"type": "json_object"}
         )
         
-        overview_section = json.loads(overview_response.choices[0].message.content).get('summary', '')
+        overview_data = json.loads(overview_response.choices[0].message.content)
+        overview_section = f"""# コンプライアンス分析レポート
+
+## 概要
+{overview_data['summary']['overview']}
+
+### 遵守率
+{overview_data['summary']['compliance_rate']}
+
+### 主要な発見事項
+"""
+        for finding in overview_data['summary']['key_findings']:
+            overview_section += f"- {finding}\n"
         
         # Process requirements in small chunks with minimal data
         requirements_sections = []
@@ -422,7 +541,7 @@ class GPTProcessor:
                     "content": get_section_prompt('requirements').format(
                         start=i+1,
                         end=min(i+chunk_size, len(compliance_results)),
-                        reqs=json.dumps(simplified_chunk)
+                        reqs=json.dumps(simplified_chunk, ensure_ascii=False)
                     )
                 }],
                 response_format={"type": "json_object"}
@@ -446,29 +565,43 @@ class GPTProcessor:
             model=MODEL_NAME,
             messages=[{
                 "role": "system",
-                "content": get_section_prompt('recommendations')
+                "content": get_section_prompt('recommendations').format(
+                    gaps=json.dumps(simplified_gaps, ensure_ascii=False)
+                )
             }, {
                 "role": "user",
-                "content": json.dumps({
-                    'gaps': simplified_gaps,
-                    'format': 'markdown'
-                })
+                "content": ""
             }],
             response_format={"type": "json_object"}
         )
         
-        # Combine all sections using string concatenation
+        # 詳細分析セクションの整形
+        detailed_analysis = "## 詳細分析\n\n"
+        for section in requirements_sections:
+            if isinstance(section, str):
+                section_data = json.loads(section)
+                for req in section_data.get('analysis', {}).get('requirements', []):
+                    detailed_analysis += f"### {req['overview']}\n"
+                    detailed_analysis += f"**遵守状況**: {req['compliance_status']}\n\n"
+                    detailed_analysis += f"**対応状況**: {req['measures_taken']}\n\n"
+
+        # 改善提案セクションの整形
+        recommendations_data = json.loads(recommendations_response.choices[0].message.content)
+        recommendations_section = "## 改善提案\n\n"
+        for action in recommendations_data.get('recommendations', {}).get('priority_actions', []):
+            recommendations_section += f"### {action['title']}\n"
+            recommendations_section += f"**優先度**: {action['priority']}\n\n"
+            recommendations_section += f"**説明**: {action['description']}\n\n"
+            recommendations_section += f"**想定される影響**: {action['impact']}\n\n"
+
+        # レポートの組み立て
         report_parts = [
-            "# コンプライアンス分析レポート\n\n",
-            "## 概要\n",
-            overview_section + "\n\n",
-            "## 詳細分析\n",
-            "\n\n".join(requirements_sections) + "\n\n",
-            "## 改善提案\n",
-            json.loads(recommendations_response.choices[0].message.content).get('recommendations', '')
+            overview_section,
+            detailed_analysis,
+            recommendations_section
         ]
         
-        return "".join(report_parts)
+        return "\n\n".join(report_parts)
 
     @retry_on_rate_limit()
     @retry_on_rate_limit()
