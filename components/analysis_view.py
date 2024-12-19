@@ -207,13 +207,24 @@ def process_requirement(args):
 def analyze_compliance(requirements, prohibitions, embedding_processor):
     """Analyze compliance using cluster-based approach"""
     try:
+        if not requirements and not prohibitions:
+            st.warning("要件または禁止事項が見つかりません")
+            return []
+            
+        if not embedding_processor or not embedding_processor.stored_texts:
+            st.warning("内部規定が見つかりません")
+            return []
+            
         gpt_processor = GPTProcessor()
         
         # First, perform clustering on internal regulations
         with st.spinner("クラスタリングを実行中..."):
-            clusters = embedding_processor.perform_clustering(
-                n_clusters=min(5, len(embedding_processor.stored_texts))
-            )
+            n_clusters = min(5, max(1, len(embedding_processor.stored_texts)))
+            clusters = embedding_processor.perform_clustering(n_clusters=n_clusters)
+            
+            if not clusters:
+                st.warning("クラスタリングが正常に実行できませんでした")
+                return []
         
         # Create a progress bar
         progress_bar = st.progress(0)
@@ -294,9 +305,22 @@ def display_compliance_results(results):
         st.warning("分析結果がありません")
         return
     
+    # Validate result structure
+    def is_valid_result(r):
+        return (isinstance(r, dict) and
+                'analysis' in r and
+                isinstance(r['analysis'], dict) and
+                'overall_compliance' in r['analysis'])
+    
+    # Filter valid results and count compliant clusters
+    valid_results = [r for r in results if is_valid_result(r)]
+    if not valid_results:
+        st.error("有効な分析結果が見つかりませんでした")
+        return
+    
     # Overall compliance visualization
-    compliant_clusters = sum(1 for r in results if r['analysis']['overall_compliance'])
-    total_clusters = len(results)
+    compliant_clusters = sum(1 for r in valid_results if r['analysis']['overall_compliance'])
+    total_clusters = len(valid_results)
     
     col1, col2 = st.columns(2)
     

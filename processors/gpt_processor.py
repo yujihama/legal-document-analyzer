@@ -329,15 +329,34 @@ class GPTProcessor:
         # Prepare input text
         input_text = f"クラスタ要約:\n{cluster_summary}\n\n社内規定:\n" + "\n\n".join(regulations)
 
-        response = self.client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{
-                "role": "system",
-                "content": prompts[self.language]
-            }, {
-                "role": "user",
-                "content": input_text
-            }],
-            response_format={"type": "json_object"})
-        
-        return json.loads(response.choices[0].message.content)
+        try:
+            response = self.client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[{
+                    "role": "system",
+                    "content": prompts[self.language]
+                }, {
+                    "role": "user",
+                    "content": input_text
+                }],
+                response_format={"type": "json_object"})
+            
+            result = json.loads(response.choices[0].message.content)
+            
+            # Ensure all required fields exist with default values
+            return {
+                "overall_compliance": result.get("overall_compliance", False),
+                "compliance_score": float(result.get("compliance_score", 0.0)),
+                "analysis": result.get("analysis", "分析を実行できませんでした"),
+                "key_findings": result.get("key_findings", ["分析結果がありません"]),
+                "improvement_suggestions": result.get("improvement_suggestions", ["改善提案がありません"])
+            }
+        except Exception as e:
+            print(f"Error in analyze_cluster_compliance: {e}")
+            return {
+                "overall_compliance": False,
+                "compliance_score": 0.0,
+                "analysis": "分析中にエラーが発生しました",
+                "key_findings": ["エラーが発生しました"],
+                "improvement_suggestions": ["システム管理者に連絡してください"]
+            }
