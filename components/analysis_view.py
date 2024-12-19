@@ -13,22 +13,27 @@ def render_analysis_section():
     
     results = st.session_state.analysis_results
     
-    # Display Requirements Summary
-    st.subheader("Requirements Summary")
-    col1, col2, col3 = st.columns(3)
+    # Display Cluster Analysis Summary
+    st.subheader("クラスタ分析の概要")
     
-    total_reqs = len(results['legal']['requirements'])
-    total_prohibs = len(results['legal']['prohibitions'])
-    
-    with col1:
-        st.metric("Total Requirements", total_reqs)
-    with col2:
-        st.metric("Total Prohibitions", total_prohibs)
-    with col3:
-        st.metric("Total Rules", total_reqs + total_prohibs)
-    
-    # Requirements Analysis
-    st.subheader("Requirements Analysis")
+    if 'compliance_results' in st.session_state:
+        clusters = st.session_state.compliance_results
+        
+        col1, col2, col3 = st.columns(3)
+        
+        total_clusters = len(clusters)
+        total_reqs = sum(len(cluster['requirements']) for cluster in clusters)
+        total_prohibs = sum(len(cluster['prohibitions']) for cluster in clusters)
+        
+        with col1:
+            st.metric("クラスタ数", total_clusters)
+        with col2:
+            st.metric("要件数", total_reqs)
+        with col3:
+            st.metric("禁止事項数", total_prohibs)
+        
+        # Display cluster analysis results
+        st.subheader("クラスタ別分析結果")
     
     if 'embedding_processor' not in st.session_state:
         with st.spinner("Initializing analysis..."):
@@ -84,21 +89,44 @@ def render_analysis_section():
         }
     }
     
-    st.subheader(headers_detail[st.session_state.language])
-    for i, result in enumerate(st.session_state.compliance_results):
-        with st.expander(f"{labels[st.session_state.language]['requirement']} {i+1}: {result['requirement']['text'][:100]}..."):
-            st.markdown(f"**{labels[st.session_state.language]['requirement_type']}:**")
-            st.write(labels[st.session_state.language]['prohibition'] if result['requirement'].get('is_prohibition') else labels[st.session_state.language]['regular'])
-            
-            st.markdown(f"**{labels[st.session_state.language]['matches']}:**")
-            for match in result['matches']:
-                st.markdown("---")
-                st.markdown(f"**{labels[st.session_state.language]['matched_text']}:**")
-                st.write(match['text'])
-                st.markdown(f"**{labels[st.session_state.language]['analysis']}:**")
-                st.write(match['analysis']['explanation'])
-                st.markdown(f"**{labels[st.session_state.language]['score']}:**")
-                st.write(f"{match['analysis'].get('score', 0):.2f}")
+    if 'compliance_results' in st.session_state:
+        clusters = st.session_state.compliance_results
+        for i, cluster in enumerate(clusters):
+            with st.expander(f"クラスタ {cluster['cluster_id']} の分析結果"):
+                # Display cluster summary
+                st.markdown("### クラスタの要約")
+                st.write(cluster['summary']['comprehensive_summary'])
+                
+                # Display requirements and prohibitions
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("### 要件")
+                    for req in cluster['requirements']:
+                        st.markdown(f"- {req['text']}")
+                
+                with col2:
+                    st.markdown("### 禁止事項")
+                    for prob in cluster['prohibitions']:
+                        st.markdown(f"- {prob['text']}")
+                
+                # Display compliance analysis
+                st.markdown("### コンプライアンス分析")
+                st.markdown(f"**遵守状況:** {'遵守' if cluster['analysis']['overall_compliance'] else '未遵守'}")
+                st.markdown(f"**スコア:** {cluster['analysis']['compliance_score']:.2f}")
+                st.markdown("**分析結果:**")
+                st.write(cluster['analysis']['analysis'])
+                
+                # Display findings and suggestions
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("### 主要な発見事項")
+                    for finding in cluster['analysis']['key_findings']:
+                        st.markdown(f"- {finding}")
+                
+                with col2:
+                    st.markdown("### 改善提案")
+                    for suggestion in cluster['analysis']['improvement_suggestions']:
+                        st.markdown(f"- {suggestion}")
 
 import multiprocessing
 from functools import partial
