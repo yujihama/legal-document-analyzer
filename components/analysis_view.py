@@ -38,8 +38,8 @@ def render_analysis_section():
     if 'embedding_processor' not in st.session_state:
         with st.spinner("Initializing analysis..."):
             processor = EmbeddingProcessor()
-            internal_sections = [s['text'] for s in results['internal']['sections']]
-            processor.create_index(internal_sections)
+            internal_chunks = results['internal']['chunks']
+            processor.create_index(internal_chunks)
             st.session_state.embedding_processor = processor
     
     # Analyze compliance for each requirement
