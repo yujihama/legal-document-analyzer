@@ -250,33 +250,38 @@ class GPTProcessor:
         return json.loads(response.choices[0].message.content)
 
     @retry_on_rate_limit()
-    @retry_on_rate_limit()
-    def summarize_cluster(self, texts: str) -> Dict:
-        """Summarize a cluster of texts and generate a representative text"""
+    def summarize_cluster_requirements(self, requirements: List[Dict], prohibitions: List[Dict]) -> Dict:
+        """Generate a comprehensive summary of requirements and prohibitions in a cluster"""
         prompts = {
             'ja': """
-            以下の関連文書群から、以下の2つを生成してください：
-            1. この文書群を代表する代表的なテキスト（最も特徴的な1つを選ぶか、複数を組み合わせて生成）
-            2. 文書群全体の要約（トピックや主要なポイントを含む）
+            以下の要件と禁止事項から、包括的な要約を生成してください。
+            要件と禁止事項の意図を保持しながら、重複を排除し、論理的にまとめてください。
 
             回答は以下のJSON形式で返してください：
             {
-                "representative_text": "代表的なテキスト",
-                "summary": "全体の要約"
+                "comprehensive_summary": "すべての要件と禁止事項を網羅した要約文",
+                "key_points": ["重要なポイント1", "重要なポイント2", ...],
+                "requirements_summary": "要件のまとめ",
+                "prohibitions_summary": "禁止事項のまとめ"
             }
             """,
             'en': """
-            From the following related documents, please generate:
-            1. A representative text for this document cluster (select the most characteristic one or combine multiple)
-            2. A summary of the entire document cluster (including topics and key points)
+            Generate a comprehensive summary from the following requirements and prohibitions.
+            Maintain the intent while eliminating duplicates and organizing logically.
 
             Please return in the following JSON format:
             {
-                "representative_text": "representative text",
-                "summary": "overall summary"
+                "comprehensive_summary": "summary covering all requirements and prohibitions",
+                "key_points": ["key point 1", "key point 2", ...],
+                "requirements_summary": "summary of requirements",
+                "prohibitions_summary": "summary of prohibitions"
             }
             """
         }
+
+        # Prepare input text
+        input_text = "要件:\n" + "\n".join([f"- {r['text']}" for r in requirements])
+        input_text += "\n\n禁止事項:\n" + "\n".join([f"- {p['text']}" for p in prohibitions])
 
         response = self.client.chat.completions.create(
             model=MODEL_NAME,
@@ -285,7 +290,53 @@ class GPTProcessor:
                 "content": prompts[self.language]
             }, {
                 "role": "user",
-                "content": texts
+                "content": input_text
+            }],
+            response_format={"type": "json_object"})
+        
+        return json.loads(response.choices[0].message.content)
+
+    @retry_on_rate_limit()
+    def analyze_cluster_compliance(self, cluster_summary: str, regulations: List[str]) -> Dict:
+        """Analyze if regulations satisfy the cluster's requirements summary"""
+        prompts = {
+            'ja': """
+            クラスタの要約と社内規定を比較し、包括的なコンプライアンス評価を行ってください。
+            
+            回答は以下のJSON形式で返してください：
+            {
+                "overall_compliance": true/false,
+                "compliance_score": 0.0-1.0,
+                "analysis": "詳細な分析",
+                "key_findings": ["発見1", "発見2", ...],
+                "improvement_suggestions": ["提案1", "提案2", ...]
+            }
+            """,
+            'en': """
+            Compare the cluster summary with internal regulations and perform a comprehensive compliance evaluation.
+            
+            Please return in the following JSON format:
+            {
+                "overall_compliance": true/false,
+                "compliance_score": 0.0-1.0,
+                "analysis": "detailed analysis",
+                "key_findings": ["finding 1", "finding 2", ...],
+                "improvement_suggestions": ["suggestion 1", "suggestion 2", ...]
+            }
+            """
+        }
+
+        # Prepare input text
+        input_text = f"クラスタ要約:\n{cluster_summary}\n\n社内規定:\n" + "\n\n".join(regulations)
+
+        response = self.client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{
+                "role": "system",
+                "content": prompts[self.language]
+            }, {
+                "role": "user",
+                "content": input_text
             }],
             response_format={"type": "json_object"})
         

@@ -177,7 +177,7 @@ def process_requirement(args):
         return None
 
 def analyze_compliance(requirements, prohibitions, embedding_processor):
-    """Analyze compliance for requirements and prohibitions using parallel processing"""
+    """Analyze compliance using cluster-based approach"""
     try:
         gpt_processor = GPTProcessor()
         
@@ -186,46 +186,70 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
             clusters = embedding_processor.perform_clustering(
                 n_clusters=min(5, len(embedding_processor.stored_texts))
             )
-            embedding_processor.update_cluster_representatives(gpt_processor)
-        
-        # Prepare serializable data for multiprocessing
-        stored_texts = embedding_processor.stored_texts
-        cluster_data = [cluster.to_dict() for cluster in clusters]
-        
-        # Prepare all requirements for processing
-        all_reqs = requirements + prohibitions
-        total_reqs = len(all_reqs)
-        
-        # Create args for each requirement
-        process_args = [(req, stored_texts, cluster_data) for req in all_reqs]
-        
-        # Use a fixed small number of processes and fixed chunk size for stability
-        num_processes = 2  # Limit to 2 processes
-        chunk_size = 2     # Process 2 requirements at a time
         
         # Create a progress bar
         progress_bar = st.progress(0)
         status_text = st.empty()
+        total_clusters = len(clusters)
         
-        # Process requirements in parallel with limited processes
-        with multiprocessing.Pool(processes=num_processes) as pool:
-            results = []
+        results = []
+        
+        # Process each cluster
+        for i, cluster in enumerate(clusters):
             try:
-                # Use map instead of imap_unordered for better stability
-                completed_results = pool.map(process_requirement, process_args, chunksize=chunk_size)
+                # Find requirements and prohibitions belonging to this cluster
+                cluster_reqs = []
+                cluster_prohibs = []
                 
-                # Process results sequentially after parallel computation
-                for i, result in enumerate(completed_results):
-                    if result:  # Only append valid results
-                        results.append(result)
-                        # Update progress
-                        progress = (i + 1) / total_reqs
-                        progress_bar.progress(progress)
-                        status_text.text(f"分析進捗: {i + 1}/{total_reqs} 要件を処理完了")
+                # Get query embedding for each requirement and prohibition
+                for req in requirements:
+                    query_embedding = embedding_processor.get_embedding(req['text'])
+                    distance = float(np.linalg.norm(query_embedding - cluster.centroid))
+                    if distance < 1.5:  # Threshold for cluster membership
+                        cluster_reqs.append(req)
+                
+                for prob in prohibitions:
+                    query_embedding = embedding_processor.get_embedding(prob['text'])
+                    distance = float(np.linalg.norm(query_embedding - cluster.centroid))
+                    if distance < 1.5:  # Threshold for cluster membership
+                        cluster_prohibs.append(prob)
+                
+                # Generate comprehensive summary for the cluster
+                cluster_summary = gpt_processor.summarize_cluster_requirements(
+                    cluster_reqs, cluster_prohibs
+                )
+                
+                # Get relevant internal regulations for this cluster
+                cluster_regulations = []
+                for text in cluster.texts:
+                    if len(text.strip()) > 0:
+                        cluster_regulations.append(text)
+                
+                # Analyze compliance for the cluster
+                compliance_analysis = gpt_processor.analyze_cluster_compliance(
+                    cluster_summary['comprehensive_summary'],
+                    cluster_regulations
+                )
+                
+                # Store results
+                results.append({
+                    'cluster_id': cluster.id,
+                    'requirements': cluster_reqs,
+                    'prohibitions': cluster_prohibs,
+                    'summary': cluster_summary,
+                    'analysis': compliance_analysis,
+                    'regulations': cluster_regulations
+                })
+                
+                # Update progress
+                progress = (i + 1) / total_clusters
+                progress_bar.progress(progress)
+                status_text.text(f"クラスタ分析進捗: {i + 1}/{total_clusters}")
+                
             except Exception as e:
-                st.error(f"並列処理中にエラーが発生しました: {str(e)}")
-                print(f"Parallel processing error details: {e}")
-                results = []  # Reset results on error
+                st.error(f"クラスタ {cluster.id} の処理中にエラーが発生しました: {str(e)}")
+                print(f"Cluster processing error details: {e}")
+                continue
         
         # Clear progress indicators
         progress_bar.empty()
@@ -237,12 +261,14 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
         return []
 
 def display_compliance_results(results):
-    """Display compliance analysis results with visualizations"""
-    # Compliance Status Chart
-    compliant = sum(1 for r in results if any(
-        m['analysis']['compliant'] for m in r['matches']
-    ))
-    non_compliant = len(results) - compliant
+    """Display cluster-based compliance analysis results with visualizations"""
+    if not results:
+        st.warning("分析結果がありません")
+        return
+    
+    # Overall compliance visualization
+    compliant_clusters = sum(1 for r in results if r['analysis']['overall_compliance'])
+    total_clusters = len(results)
     
     col1, col2 = st.columns(2)
     
@@ -251,67 +277,80 @@ def display_compliance_results(results):
         fig_pie = go.Figure(data=[
             go.Pie(
                 labels=['遵守', '未遵守'],
-                values=[compliant, non_compliant],
+                values=[compliant_clusters, total_clusters - compliant_clusters],
                 marker_colors=['#2ecc71', '#e74c3c']
             )
         ])
-        fig_pie.update_layout(title="遵守状況の概要")
+        fig_pie.update_layout(title="クラスタごとの遵守状況")
         st.plotly_chart(fig_pie)
     
     with col2:
-        # Display Cluster Information
-        st.subheader("クラスタリング分析結果")
-        if any(r.get('cluster') for r in results):
-            clusters = {}
-            for result in results:
-                cluster = result.get('cluster', {})
-                cluster_id = cluster.get('id')
-                if cluster_id is not None:
-                    if cluster_id not in clusters:
-                        clusters[cluster_id] = {
-                            'count': 0,
-                            'summary': cluster.get('summary', ''),
-                            'representative_text': cluster.get('representative_text', ''),
-                            'texts': cluster.get('texts', []),
-                            'requirements': []  # 要件のリストを保持
-                        }
-                    clusters[cluster_id]['count'] += 1
-                    # 要件情報を保存
-                    clusters[cluster_id]['requirements'].append({
-                        'text': result['requirement']['text'],
-                        'type': 'prohibition' if result['requirement'].get('is_prohibition') else 'requirement'
-                    })
-            
-            # Create cluster distribution chart
-            cluster_counts = [{'id': k, 'count': v['count']} for k, v in clusters.items()]
-            if cluster_counts:
-                fig_cluster = go.Figure(data=[
-                    go.Bar(
-                        x=[f"クラスタ {c['id']}" for c in cluster_counts],
-                        y=[c['count'] for c in cluster_counts],
-                        marker_color='#3498db'
-                    )
-                ])
-                fig_cluster.update_layout(
-                    title="要件のクラスタ分布",
-                    xaxis_title="クラスタ",
-                    yaxis_title="要件数"
-                )
-                st.plotly_chart(fig_cluster)
+        # Compliance Scores Bar Chart
+        fig_scores = go.Figure(data=[
+            go.Bar(
+                x=[f"クラスタ {r['cluster_id']}" for r in results],
+                y=[r['analysis']['compliance_score'] for r in results],
+                marker_color='#3498db'
+            )
+        ])
+        fig_scores.update_layout(
+            title="コンプライアンススコア分布",
+            yaxis=dict(range=[0, 1]),
+            yaxis_title="スコア"
+        )
+        st.plotly_chart(fig_scores)
     
-    # Display detailed cluster information
-    st.subheader("クラスタの詳細情報")
-    if any(r.get('cluster') for r in results):
-        for cluster_id, cluster_info in clusters.items():
-            with st.expander(f"クラスタ {cluster_id} の詳細"):
-                st.markdown("**代表的なテキスト:**")
-                st.write(cluster_info['representative_text'])
-                st.markdown("**クラスタの要約:**")
-                st.write(cluster_info['summary'])
-                st.markdown(f"**このクラスタに含まれる要件数:** {len(cluster_info['requirements'])}")
-                st.markdown("**クラスタ内の要件一覧:**")
-                for i, req in enumerate(cluster_info.get('requirements', []), 1):
-                    st.write(f"{i}. [{req['type']}] {req['text'][:100]}...")
-                st.markdown("**クラスタ内の関連テキスト一覧:**")
-                for i, text in enumerate(cluster_info.get('texts', []), 1):
-                    st.write(f"{i}. {text[:30]}...")
+    # Display detailed analysis for each cluster
+    st.subheader("クラスタ別詳細分析")
+    
+    for result in results:
+        with st.expander(f"クラスタ {result['cluster_id']} の詳細分析"):
+            # Cluster summary
+            st.markdown("### クラスタの要約")
+            st.markdown("**包括的な要約:**")
+            st.write(result['summary']['comprehensive_summary'])
+            
+            st.markdown("**重要なポイント:**")
+            for point in result['summary']['key_points']:
+                st.markdown(f"- {point}")
+            
+            # Requirements and prohibitions
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("### 要件のまとめ")
+                st.write(result['summary']['requirements_summary'])
+                st.markdown("**個別要件:**")
+                for req in result['requirements']:
+                    st.markdown(f"- {req['text']}")
+            
+            with col2:
+                st.markdown("### 禁止事項のまとめ")
+                st.write(result['summary']['prohibitions_summary'])
+                st.markdown("**個別禁止事項:**")
+                for prob in result['prohibitions']:
+                    st.markdown(f"- {prob['text']}")
+            
+            # Compliance analysis
+            st.markdown("### コンプライアンス分析")
+            st.markdown(f"**全体評価:** {'遵守' if result['analysis']['overall_compliance'] else '未遵守'}")
+            st.markdown(f"**スコア:** {result['analysis']['compliance_score']:.2f}")
+            st.markdown("**詳細分析:**")
+            st.write(result['analysis']['analysis'])
+            
+            # Key findings and suggestions
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("### 主要な発見事項")
+                for finding in result['analysis']['key_findings']:
+                    st.markdown(f"- {finding}")
+            
+            with col2:
+                st.markdown("### 改善提案")
+                for suggestion in result['analysis']['improvement_suggestions']:
+                    st.markdown(f"- {suggestion}")
+            
+            # Related regulations
+            with st.expander("関連する社内規定"):
+                for i, reg in enumerate(result['regulations'], 1):
+                    st.markdown(f"**規定 {i}:**")
+                    st.write(reg)
