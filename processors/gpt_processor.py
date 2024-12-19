@@ -434,22 +434,42 @@ class GPTProcessor:
         )
         
         try:
-            overview_data = json.loads(overview_response.choices[0].message.content)
-            if 'summary' not in overview_data:
-                raise KeyError("Response does not contain 'summary' key")
+            # デバッグ用にレスポンスの内容を出力
+            print("Raw API Response:", overview_response.choices[0].message.content)
+            
+            try:
+                overview_data = json.loads(overview_response.choices[0].message.content)
+                print("Parsed Response:", overview_data)
                 
-            overview_section = f"""# コンプライアンス分析レポート
+                # レスポンスの構造を確認
+                if not isinstance(overview_data, dict):
+                    raise ValueError("Response is not a dictionary")
+                
+                if 'summary' not in overview_data:
+                    print("Available keys:", list(overview_data.keys()))
+                    raise KeyError("Response does not contain 'summary' key")
+                
+                summary_data = overview_data['summary']
+                
+                overview_section = f"""# コンプライアンス分析レポート
 
 ## 概要
-{overview_data['summary']['overview']}
+{summary_data.get('overview', '概要情報なし')}
 
 ### 遵守率
-{overview_data['summary']['compliance_rate']}
+{summary_data.get('compliance_rate', '遵守率情報なし')}
 
 ### 主要な発見事項
 """
-            for finding in overview_data['summary']['key_findings']:
-                overview_section += f"- {finding}\n"
+                for finding in summary_data.get('key_findings', ['分析結果がありません']):
+                    overview_section += f"- {finding}\n"
+                    
+            except json.JSONDecodeError as e:
+                print(f"JSON parse error: {e}")
+                overview_section = "# コンプライアンス分析レポート\n\n## エラー\nレポートの生成中にエラーが発生しました。"
+            except Exception as e:
+                print(f"Error processing overview: {e}")
+                overview_section = "# コンプライアンス分析レポート\n\n## エラー\nレポートの処理中にエラーが発生しました。"
         except (KeyError, json.JSONDecodeError) as e:
             print(f"Error processing overview response: {e}")
             print(f"Raw response: {overview_response.choices[0].message.content}")
