@@ -12,74 +12,35 @@ class DocumentProcessor:
         return len(self.tokenizer.encode(text))
     
     def process_legal_document(self, text: str) -> Dict:
-        """Process legal document through hierarchical splitting and analysis with context"""
-        # First, extract the document's hierarchical context
+        """Process legal document and extract requirements directly"""
+        # Extract document context first
         doc_context = self.gpt_processor.extract_hierarchical_context(text)
         
-        # Initial splitting into ~5000 token chunks
-        initial_chunks = hierarchical_split(text, max_tokens=5000)
+        # Split document into manageable chunks
+        chunks = hierarchical_split(text, max_tokens=5000)
         
-        # Extract document structure with context
-        sections = []
-        current_context = {
-            'document_type': doc_context['document_type'],
-            'main_subject': doc_context['main_subject'],
-            'key_concepts': doc_context['key_concepts']
-        }
-        
-        # Process each chunk with its context
-        for i, chunk in enumerate(initial_chunks):
-            # Get the relevant hierarchical context for this chunk
-            chunk_context = self._get_chunk_context(doc_context, i, len(initial_chunks))
-            
-            # Combine both document and chunk-specific context
-            combined_context = {**current_context, 'local_context': chunk_context}
-            
-            # Extract sections with context
-            chunk_sections = self.gpt_processor.extract_sections(chunk)
-            for section in chunk_sections['sections']:
-                section['context'] = combined_context
-            sections.extend(chunk_sections['sections'])
-        
-        # Extract requirements and prohibitions with context
+        # Process each chunk directly for requirements
         requirements = []
         prohibitions = []
-        for section in sections:
-            section_context = section.get('context', {})
-            section_reqs = self.gpt_processor.extract_requirements(
-                section['text'],
-                context=section_context
+        
+        for chunk in chunks:
+            # Extract requirements and prohibitions directly from chunk
+            chunk_results = self.gpt_processor.extract_requirements(
+                chunk,
+                context={'document_type': doc_context['document_type']}
             )
             
-            # Transform requirements and prohibitions to include context
-            requirements_with_context = []
-            prohibitions_with_context = []
-            
-            for req in section_reqs['requirements']:
-                if isinstance(req, str):
-                    requirements_with_context.append({
-                        'text': req,
-                        'context': section_context
-                    })
-                elif isinstance(req, dict):
-                    req['context'] = section_context
-                    requirements_with_context.append(req)
-            
-            for prob in section_reqs['prohibitions']:
-                if isinstance(prob, str):
-                    prohibitions_with_context.append({
-                        'text': prob,
-                        'context': section_context
-                    })
-                elif isinstance(prob, dict):
-                    prob['context'] = section_context
-                    prohibitions_with_context.append(prob)
-            
-            requirements.extend(requirements_with_context)
-            prohibitions.extend(prohibitions_with_context)
+            # Add extracted items with minimal context
+            requirements.extend([
+                {'text': req, 'context': {'chunk': chunk}}
+                for req in chunk_results['requirements']
+            ])
+            prohibitions.extend([
+                {'text': prob, 'context': {'chunk': chunk}}
+                for prob in chunk_results['prohibitions']
+            ])
         
         return {
-            'sections': sections,
             'requirements': requirements,
             'prohibitions': prohibitions,
             'document_context': doc_context
@@ -106,15 +67,11 @@ class DocumentProcessor:
         }
     
     def process_internal_document(self, text: str) -> Dict:
-        """Process internal regulations document"""
-        # Similar process but focused on matching structure
-        initial_chunks = hierarchical_split(text, max_tokens=5000)
-        sections = []
+        """Process internal regulations document directly"""
+        # Split document into manageable chunks
+        chunks = hierarchical_split(text, max_tokens=5000)
         
-        for chunk in initial_chunks:
-            chunk_sections = self.gpt_processor.extract_sections(chunk)
-            sections.extend(chunk_sections['sections'])
-        
+        # Store chunks directly without section extraction
         return {
-            'sections': sections
+            'chunks': chunks
         }
