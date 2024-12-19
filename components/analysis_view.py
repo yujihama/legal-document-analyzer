@@ -350,7 +350,10 @@ def display_compliance_results(results):
                     st.markdown(f"- {suggestion}")
             
             # Related regulations
-            with st.expander("関連する社内規定"):
-                for i, reg in enumerate(result['regulations'], 1):
-                    st.markdown(f"**規定 {i}:**")
-                    st.write(reg)
+            st.markdown("### 関連する社内規定")
+            st.markdown("---")
+            for i, reg in enumerate(result['regulations'], 1):
+                st.markdown(f"**規定 {i}:**")
+                st.write(reg)
+                if i < len(result['regulations']):
+                    st.markdown("---")
