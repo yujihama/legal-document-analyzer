@@ -52,32 +52,22 @@ class EmbeddingProcessor:
         return embedding
 
     def batch_embed_texts(self, texts: List[str], batch_size: int = 8) -> np.ndarray:
-        """Get embeddings for a batch of texts using parallel processing"""
-        import multiprocessing
-        from functools import partial
-        
-        # Split texts into batches
-        batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
-        
-        # Create a pool of workers
-        with multiprocessing.Pool() as pool:
-            # Process batches in parallel
-            results = pool.map(self._process_batch, batches)
-        
-        # Combine results
+        """Get embeddings for a batch of texts"""
         all_embeddings = []
-        for batch_result in results:
-            all_embeddings.extend(batch_result)
+        
+        # Process texts in batches
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            batch_embeddings = []
+            
+            # Process each text in the batch
+            for text in batch:
+                embedding = self.get_embedding(text)
+                batch_embeddings.append(embedding)
+            
+            all_embeddings.extend(batch_embeddings)
         
         return np.array(all_embeddings)
-    
-    def _process_batch(self, texts: List[str]) -> List[np.ndarray]:
-        """Process a batch of texts to get their embeddings"""
-        embeddings = []
-        for text in texts:
-            embedding = self.get_embedding(text)
-            embeddings.append(embedding)
-        return embeddings
 
     def create_index(self, texts: List[str]):
         """Create FAISS index from texts"""
