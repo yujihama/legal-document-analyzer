@@ -51,14 +51,32 @@ class DocumentProcessor:
                 context=section_context
             )
             
-            # Add context information to each requirement and prohibition
-            for req in section_reqs['requirements']:
-                req['context'] = section_context
-            for prob in section_reqs['prohibitions']:
-                prob['context'] = section_context
+            # Transform requirements and prohibitions to include context
+            requirements_with_context = []
+            prohibitions_with_context = []
             
-            requirements.extend(section_reqs['requirements'])
-            prohibitions.extend(section_reqs['prohibitions'])
+            for req in section_reqs['requirements']:
+                if isinstance(req, str):
+                    requirements_with_context.append({
+                        'text': req,
+                        'context': section_context
+                    })
+                elif isinstance(req, dict):
+                    req['context'] = section_context
+                    requirements_with_context.append(req)
+            
+            for prob in section_reqs['prohibitions']:
+                if isinstance(prob, str):
+                    prohibitions_with_context.append({
+                        'text': prob,
+                        'context': section_context
+                    })
+                elif isinstance(prob, dict):
+                    prob['context'] = section_context
+                    prohibitions_with_context.append(prob)
+            
+            requirements.extend(requirements_with_context)
+            prohibitions.extend(prohibitions_with_context)
         
         return {
             'sections': sections,
