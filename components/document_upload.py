@@ -2,8 +2,28 @@ import streamlit as st
 from processors.document_processor import DocumentProcessor
 import io
 
+def load_sample_data():
+    """Load sample data files if no documents are uploaded"""
+    try:
+        if 'documents' not in st.session_state:
+            st.session_state.documents = {'legal': '', 'internal': ''}
+        
+        if not st.session_state.documents['legal'] or not st.session_state.documents['internal']:
+            with open('sample_data/legal_document.txt', 'r', encoding='utf-8') as f:
+                st.session_state.documents['legal'] = f.read()
+            with open('sample_data/internal_document.txt', 'r', encoding='utf-8') as f:
+                st.session_state.documents['internal'] = f.read()
+            return True
+    except Exception as e:
+        print(f"Error loading sample data: {e}")
+        return False
+
 def render_upload_section():
     st.header("Document Upload")
+    
+    # Load sample data if no documents are present
+    if load_sample_data():
+        st.info("サンプルデータが自動的にロードされました。必要に応じて新しい文書をアップロードしてください。")
     
     col1, col2 = st.columns(2)
     
