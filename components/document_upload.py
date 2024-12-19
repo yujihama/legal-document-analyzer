@@ -50,28 +50,28 @@ def render_upload_section():
         st.write(f"抽出されたセクション数: {len(internal_results['sections'])}")
         
         # Debug information display
-        if 'processing_results' in st.session_state:
-            st.subheader("処理詳細")
+        # if 'processing_results' in st.session_state:
+        #     st.subheader("処理詳細")
             
-            # Legal document processing details
-            st.markdown("### 法令文書の処理詳細")
-            for debug_info in st.session_state.processing_results['legal']['debug_info']:
-                st.markdown(f"#### {debug_info['title']}")
-                st.write("**Input:**")
-                st.code(debug_info['input'])
-                st.write("**Response:**")
-                st.json(debug_info['response'])
-                st.markdown("---")
+        #     # Legal document processing details
+        #     st.markdown("### 法令文書の処理詳細")
+        #     for debug_info in st.session_state.processing_results['legal']['debug_info']:
+        #         st.markdown(f"#### {debug_info['title']}")
+        #         st.write("**Input:**")
+        #         st.code(debug_info['input'])
+        #         st.write("**Response:**")
+        #         st.json(debug_info['response'])
+        #         st.markdown("---")
             
-            # Internal document processing details
-            st.markdown("### 社内規定文書の処理詳細")
-            for debug_info in st.session_state.processing_results['internal']['debug_info']:
-                st.markdown(f"#### {debug_info['title']}")
-                st.write("**Input:**")
-                st.code(debug_info['input'])
-                st.write("**Response:**")
-                st.json(debug_info['response'])
-                st.markdown("---")
+        #     # Internal document processing details
+        #     st.markdown("### 社内規定文書の処理詳細")
+        #     for debug_info in st.session_state.processing_results['internal']['debug_info']:
+        #         st.markdown(f"#### {debug_info['title']}")
+        #         st.write("**Input:**")
+        #         st.code(debug_info['input'])
+        #         st.write("**Response:**")
+        #         st.json(debug_info['response'])
+        #         st.markdown("---")
     
     if st.session_state.documents['legal'] and st.session_state.documents['internal']:
         if st.button("Process Documents"):
