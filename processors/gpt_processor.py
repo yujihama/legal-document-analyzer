@@ -351,18 +351,17 @@ class GPTProcessor:
         def get_section_prompt(section_type: str) -> str:
             prompts = {
                 'summary': {
-                    'ja': """
-以下の統計情報に基づいて、コンプライアンス状況の概要を JSON 形式で生成してください。
+                    'ja': """以下の統計情報に基づいて、コンプライアンス状況の概要をJSON形式で生成してください。
 以下の形式で応答してください：
 {
     "summary": {
         "overview": "全体的な状況の説明",
         "compliance_rate": "遵守率の説明",
-        "key_findings": ["主要な発見事項1", "主要な発見事項2", ...]
+        "key_findings": ["主要な発見事項1", "主要な発見事項2", "..."]
     }
 }
-統計情報：{stats}
-""",
+
+統計情報：{stats}""",
                     'en': """
 Generate a compliance overview in JSON format based on the following statistics.
 Please respond in the following format:
@@ -496,8 +495,12 @@ Focus on top 5 high-priority items and respond in the following format:
             response_format={"type": "json_object"}
         )
         
-        overview_data = json.loads(overview_response.choices[0].message.content)
-        overview_section = f"""# コンプライアンス分析レポート
+        try:
+            overview_data = json.loads(overview_response.choices[0].message.content)
+            if 'summary' not in overview_data:
+                raise KeyError("Response does not contain 'summary' key")
+                
+            overview_section = f"""# コンプライアンス分析レポート
 
 ## 概要
 {overview_data['summary']['overview']}
@@ -507,8 +510,12 @@ Focus on top 5 high-priority items and respond in the following format:
 
 ### 主要な発見事項
 """
-        for finding in overview_data['summary']['key_findings']:
-            overview_section += f"- {finding}\n"
+            for finding in overview_data['summary']['key_findings']:
+                overview_section += f"- {finding}\n"
+        except (KeyError, json.JSONDecodeError) as e:
+            print(f"Error processing overview response: {e}")
+            print(f"Raw response: {overview_response.choices[0].message.content}")
+            overview_section = "# コンプライアンス分析レポート\n\n## 概要\n分析結果の処理中にエラーが発生しました。"
         
         # Process requirements in small chunks with minimal data
         requirements_sections = []
@@ -547,8 +554,22 @@ Focus on top 5 high-priority items and respond in the following format:
                 response_format={"type": "json_object"}
             )
             
-            section_content = json.loads(req_response.choices[0].message.content).get('analysis', '')
-            requirements_sections.append(section_content)
+            try:
+                response_data = json.loads(req_response.choices[0].message.content)
+                if 'analysis' not in response_data:
+                    raise KeyError("Response does not contain 'analysis' key")
+                section_content = response_data['analysis']
+                requirements_sections.append(section_content)
+            except (KeyError, json.JSONDecodeError) as e:
+                print(f"Error processing requirements response: {e}")
+                print(f"Raw response: {req_response.choices[0].message.content}")
+                requirements_sections.append({
+                    "requirements": [{
+                        "overview": "要件の分析中にエラーが発生しました",
+                        "compliance_status": "不明",
+                        "measures_taken": "データの処理に失敗しました"
+                    }]
+                })
         
         # Generate recommendations based on top 5 non-compliant items only
         non_compliant = [r for r in compliance_results 
@@ -586,13 +607,21 @@ Focus on top 5 high-priority items and respond in the following format:
                     detailed_analysis += f"**対応状況**: {req['measures_taken']}\n\n"
 
         # 改善提案セクションの整形
-        recommendations_data = json.loads(recommendations_response.choices[0].message.content)
-        recommendations_section = "## 改善提案\n\n"
-        for action in recommendations_data.get('recommendations', {}).get('priority_actions', []):
-            recommendations_section += f"### {action['title']}\n"
-            recommendations_section += f"**優先度**: {action['priority']}\n\n"
-            recommendations_section += f"**説明**: {action['description']}\n\n"
-            recommendations_section += f"**想定される影響**: {action['impact']}\n\n"
+        try:
+            recommendations_data = json.loads(recommendations_response.choices[0].message.content)
+            if 'recommendations' not in recommendations_data:
+                raise KeyError("Response does not contain 'recommendations' key")
+            
+            recommendations_section = "## 改善提案\n\n"
+            for action in recommendations_data['recommendations']['priority_actions']:
+                recommendations_section += f"### {action['title']}\n"
+                recommendations_section += f"**優先度**: {action['priority']}\n\n"
+                recommendations_section += f"**説明**: {action['description']}\n\n"
+                recommendations_section += f"**想定される影響**: {action['impact']}\n\n"
+        except (KeyError, json.JSONDecodeError) as e:
+            print(f"Error processing recommendations response: {e}")
+            print(f"Raw response: {recommendations_response.choices[0].message.content}")
+            recommendations_section = "## 改善提案\n\n改善提案の生成中にエラーが発生しました。"
 
         # レポートの組み立て
         report_parts = [
