@@ -60,14 +60,13 @@ def render_upload_section():
         # Display legal document results
         st.markdown("### 法令文書の解析結果")
         legal_results = st.session_state.analysis_results['legal']
-        st.write(f"抽出されたセクション数: {len(legal_results['sections'])}")
         st.write(f"要求事項数: {len(legal_results['requirements'])}")
         st.write(f"禁止事項数: {len(legal_results['prohibitions'])}")
         
         # Display internal document results
         st.markdown("### 社内規定文書の解析結果")
         internal_results = st.session_state.analysis_results['internal']
-        st.write(f"抽出されたセクション数: {len(internal_results['sections'])}")
+        st.write(f"処理済みチャンク数: {len(internal_results['chunks'])}")
         
         # Debug information display
         # if 'processing_results' in st.session_state:
