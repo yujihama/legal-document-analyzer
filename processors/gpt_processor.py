@@ -351,15 +351,15 @@ class GPTProcessor:
         def get_section_prompt(section_type: str) -> str:
             prompts = {
                 'summary': {
-                    'ja': "以下の統計情報に基づいて、コンプライアンス状況の概要を生成してください：\n{stats}",
-                    'en': "Generate a compliance overview based on the following statistics:\n{stats}"
+                    'ja': "以下の統計情報に基づいて、コンプライアンス状況の概要をJSONで生成してください：\n{stats}",
+                    'en': "Generate a compliance overview(JSON) based on the following statistics:\n{stats}"
                 },
                 'requirements': {
-                    'ja': "以下の要件グループについて分析してください（{start}から{end}まで）：\n{reqs}\n\n文体と形式を統一するため、以下の形式で記述してください：\n1. 各要件の概要\n2. コンプライアンス状況\n3. 具体的な対応状況",
+                    'ja': "以下の要件グループについて分析してください（{start}から{end}まで）：\n{reqs}\n\n文体と形式を統一するため、以下のJSON形式で記述してください：\n1. 各要件の概要\n2. コンプライアンス状況\n3. 具体的な対応状況",
                     'en': "Analyze the following group of requirements ({start} to {end}):\n{reqs}\n\nTo maintain consistent style, please follow this format:\n1. Requirement overview\n2. Compliance status\n3. Specific measures taken"
                 },
                 'recommendations': {
-                    'ja': "未対応の要件に基づいて、主な改善提案を生成してください。優先度の高い上位5件に焦点を当ててください。",
+                    'ja': "未対応の要件に基づいて、主な改善提案をJSONで生成してください。優先度の高い上位5件に焦点を当ててください。",
                     'en': "Generate key improvement suggestions based on non-compliant requirements. Focus on top 5 high-priority items."
                 }
             }
