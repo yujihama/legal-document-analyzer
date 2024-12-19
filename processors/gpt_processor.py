@@ -52,24 +52,29 @@ class GPTProcessor:
         """Get prompt based on language setting"""
         prompts = {
             'extract_sections': {
-                'ja':
-                "文書のセクションとその階層構造を抽出してください。'sections'キーを持つJSONで返してください。各セクションは'title'と'text'フィールドを持ちます。回答フォーマット：{'sections':[{'title':'XXXXX','text':'XXXXXXXXXXXX'},...]}",
-                'en':
-                "Extract the document sections and their hierarchy. Return as JSON with a 'sections' key containing an array of sections. Each section should have 'title' and 'text' fields.format:{'sections':[{'title':'XXXXX','text':'XXXXXXXXXXXX'},...]}"
+                'ja': "文書のセクションとその階層構造を抽出してください。'sections'キーを持つJSONで返してください。各セクションは'title'と'text'フィールドを持ちます。回答フォーマット：{'sections':[{'title':'XXXXX','text':'XXXXXXXXXXXX'},...]}",
+                'en': "Extract the document sections and their hierarchy. Return as JSON with a 'sections' key containing an array of sections. Each section should have 'title' and 'text' fields.format:{'sections':[{'title':'XXXXX','text':'XXXXXXXXXXXX'},...]}"
             },
             'extract_requirements': {
-                'ja':
-                "テキストから要求事項と禁止事項を抽出してください。'requirements'と'prohibitions'の配列を持つJSONで返してください。各項目は'text'と'source_section'フィールドを持ちます。",
-                'en':
-                "Extract requirements ('must do') and prohibitions ('must not do') from the text. Return JSON with 'requirements' and 'prohibitions' arrays. Each item should have 'text' and 'source_section' fields."
+                'ja': "テキストから要求事項と禁止事項を抽出してください。'requirements'と'prohibitions'の配列を持つJSONで返してください。各項目は'text'と'source_section'フィールドを持ちます。",
+                'en': "Extract requirements ('must do') and prohibitions ('must not do') from the text. Return JSON with 'requirements' and 'prohibitions' arrays. Each item should have 'text' and 'source_section' fields."
             },
             'analyze_compliance': {
-                'ja':
-                "規制が要件を満たしているか分析してください。以下のフィールドを持つJSONで返してください：compliant（真偽値）、score（0から1の数値）、explanation（説明文）。",
-                'en':
-                "Analyze if the regulation satisfies the requirement. Return JSON with the following fields: compliant (boolean), score (float between 0 and 1), explanation (string)."
+                'ja': "規制が要件を満たしているか分析してください。以下のフィールドを持つJSONで返してください：compliant（真偽値）、score（0から1の数値）、explanation（説明文）。",
+                'en': "Analyze if the regulation satisfies the requirement. Return JSON with the following fields: compliant (boolean), score (float between 0 and 1), explanation (string)."
             }
         }
+        
+        # Debug output and error handling
+        print(f"Requesting prompt for key: {key}")
+        if key not in prompts:
+            print(f"Error: key '{key}' not found in prompts")
+            raise KeyError(f"Invalid prompt key: {key}")
+        
+        if self.language not in prompts[key]:
+            print(f"Error: language '{self.language}' not found for key '{key}'")
+            raise KeyError(f"Invalid language: {self.language}")
+        
         return prompts[key][self.language]
 
     @retry_on_rate_limit()
@@ -349,63 +354,37 @@ class GPTProcessor:
         """Generate compliance report in markdown format by processing chunks of data"""
         
         def get_section_prompt(section_type: str) -> str:
-            prompts = {
+            """Get prompt for report section based on section type"""
+            # Debug output
+            print(f"Called get_section_prompt with section_type: '{section_type}'")
+            
+            report_prompts = {
                 'summary': {
-                    'ja': "以下の統計情報に基づいて、コンプライアンス状況の概要をJSON形式で生成してください。以下の形式で応答してください：{\"summary\":{\"overview\":\"全体的な状況の説明\",\"compliance_rate\":\"遵守率の説明\",\"key_findings\":[\"主要な発見事項1\",\"主要な発見事項2\"]}} 統計情報：{stats}",
-                    'en': """
-Generate a compliance overview in JSON format based on the following statistics.
-Please respond in the following format:
-{
-    "summary": {
-        "overview": "overall situation description",
-        "compliance_rate": "compliance rate description",
-        "key_findings": ["key finding 1", "key finding 2", ...]
-    }
-}
-Statistics: {stats}
-"""
+                    'ja': "以下の統計情報に基づいて、コンプライアンス状況の概要を生成してください。統計情報：{stats}",
+                    'en': "Generate a compliance overview based on the following statistics. Statistics: {stats}"
                 },
                 'requirements': {
-                    'ja': "以下の要件グループについて分析し、JSON形式で結果を返してください（{start}から{end}まで）：{reqs} 以下の形式で応答してください：{\"analysis\":{\"requirements\":[{\"overview\":\"要件の概要\",\"compliance_status\":\"遵守状況\",\"measures_taken\":\"具体的な対応状況\"}]}}",
-                    'en': """
-Analyze the following group of requirements ({start} to {end}) and return results in JSON format:
-{reqs}
-
-Please respond in the following format:
-{
-    "analysis": {
-        "requirements": [
-            {
-                "overview": "requirement overview",
-                "compliance_status": "compliance status",
-                "measures_taken": "specific measures taken"
-            }
-        ]
-    }
-}
-"""
+                    'ja': "以下の要件グループについて分析してください（{start}から{end}まで）：{reqs}",
+                    'en': "Analyze the following group of requirements ({start} to {end}): {reqs}"
                 },
                 'recommendations': {
-                    'ja': "未対応の要件に基づいて、主な改善提案をJSON形式で生成してください。優先度の高い上位5件に焦点を当て、以下の形式で応答してください：{\"recommendations\":{\"priority_actions\":[{\"title\":\"改善提案のタイトル\",\"description\":\"詳細な説明\",\"priority\":\"優先度（高/中/低）\",\"impact\":\"想定される影響\"}]}}",
-                    'en': """
-Generate key improvement suggestions in JSON format based on non-compliant requirements.
-Focus on top 5 high-priority items and respond in the following format:
-{
-    "recommendations": {
-        "priority_actions": [
-            {
-                "title": "improvement suggestion title",
-                "description": "detailed description",
-                "priority": "priority level (high/medium/low)",
-                "impact": "expected impact"
-            }
-        ]
-    }
-}
-"""
+                    'ja': "未対応の要件に基づいて、主な改善提案を生成してください。優先度の高い上位5件に焦点を当ててください。",
+                    'en': "Generate key improvement suggestions based on non-compliant requirements. Focus on top 5 high-priority items."
                 }
             }
-            return prompts[section_type][self.language]
+            
+            # Debug output and validation
+            print("Available section types:", list(report_prompts.keys()))
+            
+            if section_type not in report_prompts:
+                print(f"Error: section_type '{section_type}' not found")
+                return "エラー：セクションタイプが見つかりません"
+            
+            if self.language not in report_prompts[section_type]:
+                print(f"Error: language '{self.language}' not found for section '{section_type}'")
+                return "エラー：言語が見つかりません"
+            
+            return report_prompts[section_type][self.language]
         
         # Generate overview section using minimal statistics
         stats = {
@@ -446,7 +425,7 @@ Focus on top 5 high-priority items and respond in the following format:
             model=MODEL_NAME,
             messages=[{
                 "role": "system",
-                "content": get_section_prompt('summary').format(stats=json.dumps(detailed_stats, ensure_ascii=False))
+                "content": get_section_prompt("summary").format(stats=json.dumps(detailed_stats, ensure_ascii=False))
             }, {
                 "role": "user",
                 "content": ""
@@ -504,7 +483,7 @@ Focus on top 5 high-priority items and respond in the following format:
                 model=MODEL_NAME,
                 messages=[{
                     "role": "system",
-                    "content": get_section_prompt('requirements').format(
+                    "content": get_section_prompt("requirements").format(
                         start=i+1,
                         end=min(i+chunk_size, len(compliance_results)),
                         reqs=json.dumps(simplified_chunk, ensure_ascii=False)
@@ -545,7 +524,7 @@ Focus on top 5 high-priority items and respond in the following format:
             model=MODEL_NAME,
             messages=[{
                 "role": "system",
-                "content": get_section_prompt('recommendations').format(
+                "content": get_section_prompt("recommendations").format(
                     gaps=json.dumps(simplified_gaps, ensure_ascii=False)
                 )
             }, {
