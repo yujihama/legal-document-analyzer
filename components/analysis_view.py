@@ -108,38 +108,45 @@ def render_analysis_section():
         clusters = st.session_state.compliance_results
         for i, cluster in enumerate(clusters):
             with st.expander(f"クラスタ {cluster['cluster_id']} の分析結果"):
-                # Display cluster summary
-                st.markdown("### クラスタの要約")
+                # クラスタの基本情報
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("要件数", len(cluster['requirements']))
+                with col2:
+                    st.metric("禁止事項数", len(cluster['prohibitions']))
+                with col3:
+                    st.metric("コンプライアンススコア", f"{cluster['analysis']['compliance_score']:.2f}")
+                
+                # クラスタの概要と所属する要件・禁止事項
+                st.markdown("### クラスタの内容")
                 st.write(cluster['summary']['comprehensive_summary'])
                 
-                # Display requirements and prohibitions
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("### 要件")
+                # 要件と禁止事項のリスト
+                st.markdown("#### 所属する要件・禁止事項")
+                if cluster['requirements']:
+                    st.markdown("**要件：**")
                     for req in cluster['requirements']:
                         st.markdown(f"- {req['text']}")
                 
-                with col2:
-                    st.markdown("### 禁止事項")
+                if cluster['prohibitions']:
+                    st.markdown("**禁止事項：**")
                     for prob in cluster['prohibitions']:
                         st.markdown(f"- {prob['text']}")
                 
-                # Display compliance analysis
-                st.markdown("### コンプライアンス分析")
-                st.markdown(f"**遵守状況:** {'遵守' if cluster['analysis']['overall_compliance'] else '未遵守'}")
-                st.markdown(f"**スコア:** {cluster['analysis']['compliance_score']:.2f}")
-                st.markdown("**分析結果:**")
+                # コンプライアンス分析結果
+                st.markdown("### 分析結果")
+                st.markdown(f"**遵守状況：** {'遵守' if cluster['analysis']['overall_compliance'] else '未遵守'}")
                 st.write(cluster['analysis']['analysis'])
                 
-                # Display findings and suggestions
+                # 発見事項と改善提案
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown("### 主要な発見事項")
+                    st.markdown("#### 主要な発見事項")
                     for finding in cluster['analysis']['key_findings']:
                         st.markdown(f"- {finding}")
                 
                 with col2:
-                    st.markdown("### 改善提案")
+                    st.markdown("#### 改善提案")
                     for suggestion in cluster['analysis']['improvement_suggestions']:
                         st.markdown(f"- {suggestion}")
 
