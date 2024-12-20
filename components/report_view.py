@@ -111,7 +111,7 @@ def generate_compliance_report() -> ComplianceReport:
         timestamp=datetime.now(),
         legal_document_name="法令文書",
         internal_document_name="社内規定",
-        total_requirements=total_requirements + total_prohibitions,
+        total_requirements=total_requirements,
         compliant_count=compliant_clusters,
         non_compliant_count=total_clusters - compliant_clusters,
         matches=[],  # 新しい構造では使用しない
@@ -134,7 +134,13 @@ def display_report(report: ComplianceReport):
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric("要件・禁止事項総数", report.total_requirements)
+        st.metric("要件数", report.total_requirements)
+    with col2:
+        st.metric("禁止事項総数", report.non_compliant_count)
+    with col3:
+        compliance_rate = (report.compliant_count / (report.compliant_count + report.non_compliant_count) * 100) \
+            if (report.compliant_count + report.non_compliant_count) > 0 else 0
+        st.metric("遵守率", f"{compliance_rate:.1f}%")
     with col2:
         st.metric("遵守クラスタ数", report.compliant_count)
     with col3:
