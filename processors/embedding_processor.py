@@ -70,22 +70,26 @@ class EmbeddingProcessor:
         return np.array(all_embeddings)
 
     def create_index(self, texts: List[str]):
-        """Create FAISS index from texts"""
-        embeddings = self.batch_embed_texts(texts)
-        dimension = embeddings.shape[1]
-
-        self.index = faiss.IndexFlatL2(dimension)
-        self.index.add(embeddings.astype('float32'))
+        """Store texts and their embeddings for similarity comparison"""
         self.stored_texts = texts
+        # Pre-compute embeddings for efficiency
+        self._embedding_cache.update({
+            text: self.get_embedding(text)
+            for text in texts
+        })
 
     def find_similar(self, query: str, distance_threshold: float = 1.5) -> List[Dict]:
-        """Find similar texts using distance-based similarity"""
+        """Find similar texts using distance-based similarity with cached embeddings"""
         query_embedding = self.get_embedding(query)
         
-        # Calculate distances to all stored texts
+        # Use pre-computed embeddings from cache
         results = []
-        for i, text in enumerate(self.stored_texts):
-            text_embedding = self.get_embedding(text)
+        for text in self.stored_texts:
+            # Get cached embedding
+            text_embedding = self._embedding_cache.get(text)
+            if text_embedding is None:
+                continue
+                
             distance = float(np.linalg.norm(query_embedding - text_embedding))
             
             if distance < distance_threshold:
