@@ -2,7 +2,7 @@ import numpy as np
 from openai import OpenAI
 from typing import List, Dict, Optional
 import faiss
-from sklearn.cluster import KMeans
+import hdbscan
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -94,27 +94,29 @@ class EmbeddingProcessor:
 
         return results
 
-    def perform_clustering(self, n_clusters: int = 5) -> List[ClusterInfo]:
-        """Perform optimized KMeans clustering on the stored embeddings"""
+    def perform_clustering(self, min_cluster_size: int = 2) -> List[ClusterInfo]:
+        """Perform HDBSCAN clustering on the stored embeddings"""
         if not self.stored_texts:
             raise ValueError("No texts have been stored yet")
 
         # Extract all embeddings in parallel
         embeddings_array = self.batch_embed_texts(self.stored_texts)
 
-        # Perform KMeans clustering with optimized parameters
-        self.kmeans = KMeans(
-            n_clusters=n_clusters,
-            random_state=42,
-            n_init=5,  # Reduce number of initializations
-            max_iter=100,  # Limit maximum iterations
-            algorithm='elkan'  # Use more efficient algorithm
+        # Perform HDBSCAN clustering
+        clusterer = hdbscan.HDBSCAN(
+            min_cluster_size=min_cluster_size,
+            min_samples=1,
+            metric='euclidean',
+            cluster_selection_epsilon=0.5,  # Allow for more flexible cluster boundaries
+            cluster_selection_method='eom'  # Excess of Mass algorithm for better cluster selection
         )
-        cluster_labels = self.kmeans.fit_predict(embeddings_array)
+        clusterer.fit(embeddings_array)
 
         # Create cluster information
         clusters: Dict[int, List[str]] = {}
-        for idx, label in enumerate(cluster_labels):
+        for idx, label in enumerate(clusterer.labels_):
+            if label == -1:  # HDBSCAN marks noise points as -1
+                continue
             if label not in clusters:
                 clusters[label] = []
             clusters[label].append(self.stored_texts[idx])
@@ -122,10 +124,17 @@ class EmbeddingProcessor:
         # Create ClusterInfo objects
         self.clusters = []
         for label, texts in clusters.items():
+            # Calculate centroid for the cluster
+            cluster_embeddings = []
+            for text in texts:
+                embedding = self.get_embedding(text)
+                cluster_embeddings.append(embedding)
+            centroid = np.mean(cluster_embeddings, axis=0) if cluster_embeddings else None
+
             cluster_info = ClusterInfo(
                 id=label,
                 texts=texts,
-                centroid=self.kmeans.cluster_centers_[label]
+                centroid=centroid
             )
             self.clusters.append(cluster_info)
 
