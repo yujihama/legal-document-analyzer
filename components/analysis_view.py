@@ -74,7 +74,7 @@ def render_analysis_section():
         'en': "Compliance Status Overview"
     }
     st.subheader(headers[st.session_state.language])
-    #display_compliance_results(st.session_state.compliance_results) #Removed
+    display_compliance_results(st.session_state.compliance_results)
 
     # Display cluster analysis results
     if 'compliance_results' in st.session_state:
@@ -352,4 +352,45 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
         st.error(f"コンプライアンス分析中にエラーが発生しました: {str(e)}")
         return []
 
-#Removed display_compliance_results function
+def display_compliance_results(clusters):
+    """Display compliance analysis results with visualizations"""
+    if not clusters:
+        st.warning("クラスタ分析結果が見つかりません")
+        return
+
+    # Calculate metrics for visualization
+    total_clusters = len(clusters)
+    compliant_clusters = sum(1 for c in clusters if c['analysis']['overall_compliance'])
+    non_compliant_clusters = total_clusters - compliant_clusters
+
+    # Create pie chart for compliance status
+    fig_pie = go.Figure(data=[go.Pie(
+        labels=['遵守', '未遵守'],
+        values=[compliant_clusters, non_compliant_clusters],
+        hole=.3,
+        marker_colors=['#00CC96', '#EF553B']
+    )])
+    fig_pie.update_layout(
+        title='コンプライアンス状況の概要',
+        showlegend=True,
+        height=400
+    )
+    st.plotly_chart(fig_pie)
+
+    # Create bar chart for requirements and prohibitions by cluster
+    cluster_ids = [str(c['cluster_id']) for c in clusters]
+    req_counts = [len(c['requirements']) for c in clusters]
+    prob_counts = [len(c['prohibitions']) for c in clusters]
+
+    fig_bar = go.Figure(data=[
+        go.Bar(name='要件', x=cluster_ids, y=req_counts),
+        go.Bar(name='禁止事項', x=cluster_ids, y=prob_counts)
+    ])
+    fig_bar.update_layout(
+        title='クラスタごとの要件・禁止事項数',
+        xaxis_title='クラスタID',
+        yaxis_title='数',
+        barmode='group',
+        height=400
+    )
+    st.plotly_chart(fig_bar)
