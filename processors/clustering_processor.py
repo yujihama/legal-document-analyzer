@@ -10,9 +10,33 @@ from processors.embedding_processor import ClusterInfo
 class BaseClusteringMethod:
     def fit_predict(self, embeddings: np.ndarray, texts: List[str], **params) -> List[ClusterInfo]:
         raise NotImplementedError
+        
+    def _create_clusters(self, labels: np.ndarray, embeddings: np.ndarray, texts: List[str]) -> List[ClusterInfo]:
+        """Create ClusterInfo objects from clustering results"""
+        clusters = {}
+        for idx, label in enumerate(labels):
+            if label == -1:  # Skip noise points
+                continue
+            if label not in clusters:
+                clusters[label] = {'texts': [], 'embeddings': []}
+            clusters[label]['texts'].append(texts[idx])
+            clusters[label]['embeddings'].append(embeddings[idx])
+        
+        result = []
+        for label, data in clusters.items():
+            if data['embeddings']:
+                centroid = np.mean(data['embeddings'], axis=0)
+                result.append(ClusterInfo(
+                    id=len(result),
+                    texts=data['texts'],
+                    centroid=centroid
+                ))
+        
+        return result
 
 class HDBSCANMethod(BaseClusteringMethod):
     def fit_predict(self, embeddings: np.ndarray, texts: List[str], **params) -> List[ClusterInfo]:
+        """Perform HDBSCAN clustering"""
         min_cluster_size = params.get('min_cluster_size', 2)
         min_samples = params.get('min_samples', 1)
         cluster_selection_epsilon = params.get('cluster_selection_epsilon', 0.2)
@@ -31,6 +55,7 @@ class HDBSCANMethod(BaseClusteringMethod):
 
 class HierarchicalMethod(BaseClusteringMethod):
     def fit_predict(self, embeddings: np.ndarray, texts: List[str], **params) -> List[ClusterInfo]:
+        """Perform hierarchical clustering with optimal number of clusters"""
         max_clusters = min(len(texts), params.get('max_clusters', 10))
         
         # Try different numbers of clusters and evaluate using silhouette score
@@ -57,6 +82,7 @@ class HierarchicalMethod(BaseClusteringMethod):
 
 class DPMMMethod(BaseClusteringMethod):
     def fit_predict(self, embeddings: np.ndarray, texts: List[str], **params) -> List[ClusterInfo]:
+        """Perform Dirichlet Process Mixture Model clustering"""
         max_components = min(len(texts), params.get('max_components', 10))
         
         dpgmm = BayesianGaussianMixture(
@@ -70,28 +96,6 @@ class DPMMMethod(BaseClusteringMethod):
         
         labels = dpgmm.fit_predict(embeddings)
         return self._create_clusters(labels, embeddings, texts)
-
-    def _create_clusters(self, labels: np.ndarray, embeddings: np.ndarray, texts: List[str]) -> List[ClusterInfo]:
-        clusters = {}
-        for idx, label in enumerate(labels):
-            if label == -1:  # Skip noise points
-                continue
-            if label not in clusters:
-                clusters[label] = {'texts': [], 'embeddings': []}
-            clusters[label]['texts'].append(texts[idx])
-            clusters[label]['embeddings'].append(embeddings[idx])
-        
-        result = []
-        for label, data in clusters.items():
-            if data['embeddings']:
-                centroid = np.mean(data['embeddings'], axis=0)
-                result.append(ClusterInfo(
-                    id=len(result),
-                    texts=data['texts'],
-                    centroid=centroid
-                ))
-        
-        return result
 
 class ClusteringProcessor:
     METHODS = {
@@ -127,6 +131,7 @@ class ClusteringProcessor:
         self.method = self.METHODS[method_name]
     
     def perform_clustering(self, embeddings: np.ndarray, texts: List[str], **params) -> List[ClusterInfo]:
+        """Perform clustering with error handling and validation"""
         if len(texts) < 2:
             print("Not enough data points for clustering")
             return []
