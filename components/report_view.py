@@ -50,11 +50,13 @@ def generate_compliance_report() -> ComplianceReport:
     summary_parts = [
         "# クラスタベースコンプライアンス分析レポート\n",
         f"## 概要\n",
-        f"- 分析クラスタ数: {total_clusters}",
-        f"- 要件総数: {total_requirements}",
-        f"- 禁止事項総数: {total_prohibitions}",
-        f"- 遵守クラスタ数: {compliant_clusters}",
+        f"以下の分析結果は、{total_clusters}個のクラスタに基づいています：\n",
+        f"- 分析対象の要件総数: {total_requirements}件",
+        f"- 分析対象の禁止事項総数: {total_prohibitions}件",
+        f"- 遵守クラスタ数: {compliant_clusters}個",
         f"- 全体遵守率: {(compliant_clusters / total_clusters * 100):.1f}% ({compliant_clusters}/{total_clusters})",
+        "\nこの分析結果は、各要件と禁止事項を意味的に関連するグループ（クラスタ）に分類し、",
+        "各クラスタごとのコンプライアンス状況を総合的に評価したものです。\n",
         "\n## クラスタ別分析結果\n"
     ]
     
@@ -63,18 +65,44 @@ def generate_compliance_report() -> ComplianceReport:
         cluster_id = cluster.get('cluster_id', 'Unknown')
         analysis = cluster.get('analysis', {})
         summary = cluster.get('summary', {})
+        requirements = cluster.get('requirements', [])
+        prohibitions = cluster.get('prohibitions', [])
+        
+        # Calculate cluster-specific metrics
+        req_count = len(requirements)
+        prob_count = len(prohibitions)
+        compliance_score = analysis.get('compliance_score', 0.0)
         
         summary_parts.extend([
             f"\n### クラスタ {cluster_id}",
+            f"**基本情報:**",
             f"- 遵守状況: {'遵守' if analysis.get('overall_compliance', False) else '未遵守'}",
-            f"- コンプライアンススコア: {analysis.get('compliance_score', 0.0):.2f}",
+            f"- コンプライアンススコア: {compliance_score:.2f}",
+            f"- 含まれる要件数: {req_count}",
+            f"- 含まれる禁止事項数: {prob_count}",
             f"\n**要約:**\n{summary.get('comprehensive_summary', '要約なし')}\n",
-            "\n**主要な発見事項:**"
+            "\n**対象となる主な要件:**"
         ])
         
-        # Add key findings
+        # Add key requirements
+        for req in requirements[:3]:  # Show top 3 requirements
+            summary_parts.append(f"- {req['text']}")
+        
+        if len(requirements) > 3:
+            summary_parts.append(f"- その他 {len(requirements) - 3} 件の要件\n")
+        
+        summary_parts.append("\n**主要な発見事項:**")
+        # Add key findings with more context
         for finding in analysis.get('key_findings', ['発見事項なし']):
-            summary_parts.append(f"- {finding}")
+            if "発見事項なし" not in finding:
+                summary_parts.append(f"- {finding}")
+                
+        # Add analysis context
+        if analysis.get('analysis'):
+            summary_parts.extend([
+                "\n**分析コンテキスト:**",
+                analysis.get('analysis')
+            ])
     
     report_content = '\n'.join(summary_parts)
     
@@ -97,8 +125,12 @@ def generate_compliance_report() -> ComplianceReport:
 
 def display_report(report: ComplianceReport):
     """Display the cluster-based compliance report in the UI"""
-    # Summary Statistics
-    st.markdown("## 分析概要")
+    # ヘッダー情報
+    st.markdown("# コンプライアンス分析レポート")
+    st.markdown(f"**生成日時:** {report.timestamp.strftime('%Y年%m月%d日 %H:%M')}")
+    
+    # エグゼクティブサマリー
+    st.markdown("## エグゼクティブサマリー")
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -110,16 +142,49 @@ def display_report(report: ComplianceReport):
             if (report.compliant_count + report.non_compliant_count) > 0 else 0
         st.metric("遵守率", f"{compliance_rate:.1f}%")
     
-    # Report Content
-    st.markdown("## 詳細分析")
-    st.markdown(report.summary)
+    # 全体評価
+    st.markdown("### 全体評価")
+    st.markdown(report.summary.split('# クラスタベースコンプライアンス分析レポート')[1].split('## クラスタ別分析結果')[0])
     
-    # Recommendations if available
+    # クラスタ別詳細分析
+    st.markdown("## クラスタ別詳細分析")
+    cluster_sections = report.summary.split('### クラスタ')[1:]
+    
+    for i, section in enumerate(cluster_sections, 1):
+        with st.expander(f"クラスタ {i} の詳細分析", expanded=True):
+            # クラスタの基本情報
+            cluster_content = section.strip()
+            st.markdown("### 基本情報")
+            
+            # 遵守状況の抽出と表示
+            compliance_status = "遵守" if "遵守状況: 遵守" in cluster_content else "未遵守"
+            score = cluster_content.split("コンプライアンススコア: ")[1].split("\n")[0]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("遵守状況", compliance_status)
+            with col2:
+                st.metric("コンプライアンススコア", score)
+            
+            # クラスタの概要
+            st.markdown("### クラスタの概要")
+            summary = cluster_content.split("**要約:**\n")[1].split("\n**主要な発見事項:**")[0]
+            st.markdown(summary)
+            
+            # 主要な発見事項
+            st.markdown("### 主要な発見事項")
+            findings = cluster_content.split("**主要な発見事項:**")[1].strip()
+            for finding in findings.split("\n"):
+                if finding.strip():
+                    st.markdown(finding)
+    
+    # 改善提案セクション
     if report.recommendations:
         st.markdown("## 改善提案")
-        for cluster_recommendations in report.recommendations:
-            for recommendation in cluster_recommendations:
-                st.markdown(f"- {recommendation}")
+        for i, cluster_recommendations in enumerate(report.recommendations, 1):
+            with st.expander(f"クラスタ {i} の改善提案"):
+                for recommendation in cluster_recommendations:
+                    st.markdown(f"- {recommendation}")
     
     # Download Options
     st.markdown("## レポートのダウンロード")
