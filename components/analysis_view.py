@@ -84,9 +84,9 @@ def render_analysis_section():
                 # 基本情報（メトリクス）
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("要件数", len(cluster['requirements']))
+                    st.metric("このクラスタの要件数", len(cluster['requirements']))
                 with col2:
-                    st.metric("禁止事項数", len(cluster['prohibitions']))
+                    st.metric("このクラスタの禁止事項数", len(cluster['prohibitions']))
                 with col3:
                     compliance_status = "遵守" if cluster['analysis']['overall_compliance'] else "未遵守"
                     st.metric("遵守状況", compliance_status)
