@@ -219,8 +219,8 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
         
         # First, perform clustering on internal regulations
         with st.spinner("クラスタリングを実行中..."):
-            n_clusters = min(5, max(1, len(embedding_processor.stored_texts)))
-            clusters = embedding_processor.perform_clustering(n_clusters=n_clusters)
+            min_cluster_size = max(2, len(embedding_processor.stored_texts) // 10)  # 適応的なクラスタサイズ
+            clusters = embedding_processor.perform_clustering(min_cluster_size=min_cluster_size)
             
             if not clusters:
                 st.warning("クラスタリングが正常に実行できませんでした")
