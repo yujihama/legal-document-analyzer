@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 import numpy as np
 from processors.embedding_processor import EmbeddingProcessor, ClusterInfo
 from processors.gpt_processor import GPTProcessor
+from processors.clustering_processor import ClusteringProcessor
 
 def render_analysis_section():
     st.header("Compliance Analysis")
