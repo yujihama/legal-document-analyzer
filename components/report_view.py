@@ -163,46 +163,44 @@ def display_report(report: ComplianceReport):
             # クラスタの基本情報
             cluster_content = section.strip()
             
-            # 遵守状況の抽出と表示
-            compliance_status = "遵守" if "遵守状況: 遵守" in cluster_content else "未遵守"
-            score = cluster_content.split("コンプライアンススコア: ")[1].split("\n")[0]
-            
-            # クラスタの基本情報と概要
+            # クラスタ詳細セクション
+            st.markdown("### クラスタ詳細")
             st.markdown("---")
+            
+            # 基本情報と概要
             col1, col2 = st.columns([1, 2])
             with col1:
-                st.markdown("### 基本情報")
+                compliance_status = "遵守" if "遵守状況: 遵守" in cluster_content else "未遵守"
+                score = cluster_content.split("コンプライアンススコア: ")[1].split("\n")[0]
                 st.metric("遵守状況", compliance_status)
-                st.metric("スコア", score)
+                st.metric("コンプライアンススコア", score)
             
             with col2:
-                st.markdown("### クラスタの概要")
                 summary = cluster_content.split("**要約:**\n")[1].split("\n**主要な発見事項:**")[0]
                 st.markdown(summary)
             
-            # 要件と禁止事項の詳細
-            st.markdown("---")
-            st.markdown("### 対象となる要件・禁止事項")
+            # 所属する要件・禁止事項
+            st.markdown("#### 所属する要件・禁止事項")
             if "**対象となる主な要件:**" in cluster_content:
                 requirements = cluster_content.split("**対象となる主な要件:**")[1].split("\n**主要な発見事項:**")[0]
                 st.markdown(requirements)
             
-            # 分析結果とその根拠
+            # 分析結果セクション
+            st.markdown("### 分析結果")
             st.markdown("---")
-            col1, col2 = st.columns(2)
             
-            with col1:
-                st.markdown("### 分析結果")
-                if "**分析コンテキスト:**" in cluster_content:
-                    analysis = cluster_content.split("**分析コンテキスト:**")[1].strip()
-                    st.markdown(analysis)
+            # 社内規定との整合性分析
+            if "**分析コンテキスト:**" in cluster_content:
+                st.markdown("#### 社内規定との整合性分析")
+                analysis = cluster_content.split("**分析コンテキスト:**")[1].strip()
+                st.markdown(analysis)
             
-            with col2:
-                st.markdown("### 主要な発見事項")
-                findings = cluster_content.split("**主要な発見事項:**")[1].strip()
-                for finding in findings.split("\n"):
-                    if finding.strip() and finding.startswith("-"):
-                        st.markdown(finding)
+            # 主要な発見事項
+            st.markdown("#### 主要な発見事項")
+            findings = cluster_content.split("**主要な発見事項:**")[1].strip()
+            for finding in findings.split("\n"):
+                if finding.strip() and finding.startswith("-"):
+                    st.markdown(finding)
             
             st.markdown("---")
     
