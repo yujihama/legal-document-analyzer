@@ -217,6 +217,46 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
             
         gpt_processor = GPTProcessor()
         
+        # クラスタリング設定用のサイドバー
+        st.sidebar.header("クラスタリング設定")
+        
+        from processors.clustering_processor import ClusteringProcessor
+        
+        # クラスタリング手法の選択
+        method_names = {
+            'hdbscan': 'HDBSCAN (密度ベース)',
+            'hierarchical': '階層的クラスタリング',
+            'dpmm': 'ディリクレ過程混合モデル'
+        }
+        selected_method = st.sidebar.selectbox(
+            "クラスタリング手法",
+            ClusteringProcessor.get_available_methods(),
+            format_func=lambda x: method_names.get(x, x)
+        )
+        
+        # 選択された手法のパラメータを表示
+        params = {}
+        method_params = ClusteringProcessor.get_method_params(selected_method)
+        
+        st.sidebar.subheader("パラメータ設定")
+        for param_name, param_range in method_params.items():
+            min_val, max_val = param_range
+            if param_name == 'cluster_selection_epsilon':
+                params[param_name] = st.sidebar.slider(
+                    f"{param_name}",
+                    min_value=float(min_val),
+                    max_value=float(max_val),
+                    value=float(min_val),
+                    step=0.1
+                )
+            else:
+                params[param_name] = st.sidebar.slider(
+                    f"{param_name}",
+                    min_value=int(min_val),
+                    max_value=int(max_val),
+                    value=int(min_val)
+                )
+        
         # First, perform clustering on internal regulations
         with st.spinner("クラスタリングを実行中..."):
             try:
@@ -225,9 +265,14 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                     st.warning("分析対象のテキストが見つかりません")
                     return []
 
-                # クラスタサイズをデータ量に応じて調整
-                min_cluster_size = max(2, min(3, n_texts - 1))
-                clusters = embedding_processor.perform_clustering(min_cluster_size=min_cluster_size)
+                # クラスタリングの実行
+                clustering_processor = ClusteringProcessor(method_name=selected_method)
+                embeddings = embedding_processor.batch_embed_texts(embedding_processor.stored_texts)
+                clusters = clustering_processor.perform_clustering(
+                    embeddings=embeddings,
+                    texts=embedding_processor.stored_texts,
+                    **params
+                )
                 
                 if not clusters:
                     st.warning("クラスタリングが正常に実行できませんでした")
