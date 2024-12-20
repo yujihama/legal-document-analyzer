@@ -107,18 +107,37 @@ class EmbeddingProcessor:
         if not self.stored_texts:
             raise ValueError("No texts have been stored yet")
 
+        # Calculate dynamic parameters based on dataset size
+        n_points = len(self.stored_texts)
+        min_samples = max(2, min(5, n_points // 10))  # Adapt to dataset size
+        min_cluster_size = max(2, min(min_cluster_size, n_points // 5))  # Ensure reasonable cluster size
+
         # Extract all embeddings in parallel
         embeddings_array = self.batch_embed_texts(self.stored_texts)
 
-        # Perform HDBSCAN clustering
+        # Perform HDBSCAN clustering with adjusted parameters
         clusterer = hdbscan.HDBSCAN(
             min_cluster_size=min_cluster_size,
-            min_samples=1,
+            min_samples=min_samples,
             metric='euclidean',
-            cluster_selection_epsilon=0.5,  # Allow for more flexible cluster boundaries
-            cluster_selection_method='eom'  # Excess of Mass algorithm for better cluster selection
+            cluster_selection_epsilon=0.3,  # Reduced for tighter clusters
+            cluster_selection_method='leaf',  # Changed to leaf for better small cluster handling
+            algorithm='best',  # Let HDBSCAN choose the best algorithm
+            core_dist_n_jobs=1  # Avoid parallel processing issues
         )
-        clusterer.fit(embeddings_array)
+        
+        try:
+            clusterer.fit(embeddings_array)
+        except Exception as e:
+            print(f"Clustering error: {str(e)}")
+            # Fallback to simpler clustering parameters
+            clusterer = hdbscan.HDBSCAN(
+                min_cluster_size=2,
+                min_samples=1,
+                metric='euclidean',
+                cluster_selection_method='leaf'
+            )
+            clusterer.fit(embeddings_array)
 
         # Create cluster information
         clusters: Dict[int, List[str]] = {}
