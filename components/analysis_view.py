@@ -22,8 +22,9 @@ def render_analysis_section():
         col1, col2, col3 = st.columns(3)
         
         total_clusters = len(clusters)
-        total_reqs = sum(len(cluster['requirements']) for cluster in clusters)
-        total_prohibs = sum(len(cluster['prohibitions']) for cluster in clusters)
+        # 元の抽出結果から直接カウント
+        total_reqs = len(results['legal']['requirements'])
+        total_prohibs = len(results['legal']['prohibitions'])
         
         with col1:
             st.metric("クラスタ数", total_clusters)
@@ -230,45 +231,13 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
             
         gpt_processor = GPTProcessor()
         
-        # クラスタリング設定用のサイドバー
-        st.sidebar.header("クラスタリング設定")
-        
-        from processors.clustering_processor import ClusteringProcessor
-        
-        # クラスタリング手法の選択
-        method_names = {
-            'hdbscan': 'HDBSCAN (密度ベース)',
-            'hierarchical': '階層的クラスタリング',
-            'dpmm': 'ディリクレ過程混合モデル'
+        # デフォルトのクラスタリングパラメータを設定
+        params = {
+            'min_cluster_size': 2,
+            'min_samples': 1,
+            'cluster_selection_epsilon': 0.2
         }
-        selected_method = st.sidebar.selectbox(
-            "クラスタリング手法",
-            ClusteringProcessor.get_available_methods(),
-            format_func=lambda x: method_names.get(x, x)
-        )
-        
-        # 選択された手法のパラメータを表示
-        params = {}
-        method_params = ClusteringProcessor.get_method_params(selected_method)
-        
-        st.sidebar.subheader("パラメータ設定")
-        for param_name, param_range in method_params.items():
-            min_val, max_val = param_range
-            if param_name == 'cluster_selection_epsilon':
-                params[param_name] = st.sidebar.slider(
-                    f"{param_name}",
-                    min_value=float(min_val),
-                    max_value=float(max_val),
-                    value=float(min_val),
-                    step=0.1
-                )
-            else:
-                params[param_name] = st.sidebar.slider(
-                    f"{param_name}",
-                    min_value=int(min_val),
-                    max_value=int(max_val),
-                    value=int(min_val)
-                )
+        selected_method = 'hdbscan'
         
         # First, perform clustering on internal regulations
         with st.spinner("クラスタリングを実行中..."):
