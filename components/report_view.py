@@ -167,7 +167,7 @@ def display_report(report: ComplianceReport):
             compliance_status = "遵守" if "遵守状況: 遵守" in cluster_content else "未遵守"
             score = cluster_content.split("コンプライアンススコア: ")[1].split("\n")[0]
             
-            # ステータスと概要を横に並べて表示
+            # クラスタの基本情報と概要
             st.markdown("---")
             col1, col2 = st.columns([1, 2])
             with col1:
@@ -180,22 +180,29 @@ def display_report(report: ComplianceReport):
                 summary = cluster_content.split("**要約:**\n")[1].split("\n**主要な発見事項:**")[0]
                 st.markdown(summary)
             
-            # 主要な発見事項と分析結果を区切り線で分離
+            # 要件と禁止事項の詳細
+            st.markdown("---")
+            st.markdown("### 対象となる要件・禁止事項")
+            if "**対象となる主な要件:**" in cluster_content:
+                requirements = cluster_content.split("**対象となる主な要件:**")[1].split("\n**主要な発見事項:**")[0]
+                st.markdown(requirements)
+            
+            # 分析結果とその根拠
             st.markdown("---")
             col1, col2 = st.columns(2)
             
             with col1:
+                st.markdown("### 分析結果")
+                if "**分析コンテキスト:**" in cluster_content:
+                    analysis = cluster_content.split("**分析コンテキスト:**")[1].strip()
+                    st.markdown(analysis)
+            
+            with col2:
                 st.markdown("### 主要な発見事項")
                 findings = cluster_content.split("**主要な発見事項:**")[1].strip()
                 for finding in findings.split("\n"):
                     if finding.strip() and finding.startswith("-"):
                         st.markdown(finding)
-            
-            with col2:
-                st.markdown("### 分析結果")
-                if "**分析コンテキスト:**" in cluster_content:
-                    analysis = cluster_content.split("**分析コンテキスト:**")[1].strip()
-                    st.markdown(analysis)
             
             st.markdown("---")
     
