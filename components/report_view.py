@@ -42,9 +42,14 @@ def generate_compliance_report() -> ComplianceReport:
         if cluster.get('analysis', {}).get('overall_compliance', False)
     )
     
-    # Calculate total requirements and prohibitions
-    total_requirements = sum(len(cluster.get('requirements', [])) for cluster in clusters)
-    total_prohibitions = sum(len(cluster.get('prohibitions', [])) for cluster in clusters)
+    # Get unique requirements and prohibitions from original analysis results
+    if 'analysis_results' in st.session_state:
+        results = st.session_state.analysis_results
+        total_requirements = len(results['legal']['requirements'])
+        total_prohibitions = len(results['legal']['prohibitions'])
+    else:
+        total_requirements = 0
+        total_prohibitions = 0
     
     # Generate summary content
     summary_parts = [
