@@ -30,10 +30,8 @@ class EmbeddingProcessor:
 
     def __init__(self):
         self.client = OpenAI()
-        self.index = None
         self.stored_texts = []
         self.clusters: List[ClusterInfo] = []
-        self.kmeans: Optional[KMeans] = None
         self._embedding_cache = {}
 
     def get_embedding(self, text: str) -> np.ndarray:
@@ -107,37 +105,37 @@ class EmbeddingProcessor:
         if not self.stored_texts:
             raise ValueError("No texts have been stored yet")
 
-        # Calculate dynamic parameters based on dataset size
-        n_points = len(self.stored_texts)
-        min_samples = max(2, min(5, n_points // 10))  # Adapt to dataset size
-        min_cluster_size = max(2, min(min_cluster_size, n_points // 5))  # Ensure reasonable cluster size
+        print(f"Starting clustering with {len(self.stored_texts)} texts")
 
         # Extract all embeddings in parallel
         embeddings_array = self.batch_embed_texts(self.stored_texts)
+        print(f"Generated embeddings array shape: {embeddings_array.shape}")
 
-        # Perform HDBSCAN clustering with adjusted parameters
-        clusterer = hdbscan.HDBSCAN(
-            min_cluster_size=min_cluster_size,
-            min_samples=min_samples,
-            metric='euclidean',
-            cluster_selection_epsilon=0.3,  # Reduced for tighter clusters
-            cluster_selection_method='leaf',  # Changed to leaf for better small cluster handling
-            algorithm='best',  # Let HDBSCAN choose the best algorithm
-            core_dist_n_jobs=1  # Avoid parallel processing issues
-        )
+        # Use very conservative parameters for small datasets
+        min_cluster_size = max(2, min(3, len(self.stored_texts) - 1))
+        min_samples = max(1, min(2, len(self.stored_texts) - 1))
         
+        print(f"Clustering parameters: min_cluster_size={min_cluster_size}, min_samples={min_samples}")
+
+        # Perform HDBSCAN clustering with minimal parameters
         try:
-            clusterer.fit(embeddings_array)
-        except Exception as e:
-            print(f"Clustering error: {str(e)}")
-            # Fallback to simpler clustering parameters
+            print("Attempting HDBSCAN clustering...")
             clusterer = hdbscan.HDBSCAN(
-                min_cluster_size=2,
-                min_samples=1,
+                min_cluster_size=min_cluster_size,
+                min_samples=min_samples,
                 metric='euclidean',
-                cluster_selection_method='leaf'
+                cluster_selection_method='leaf',
+                prediction_data=True
             )
-            clusterer.fit(embeddings_array)
+            
+            cluster_labels = clusterer.fit_predict(embeddings_array)
+            print(f"Clustering complete. Found {len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)} clusters")
+            
+        except Exception as e:
+            print(f"Detailed clustering error: {str(e)}")
+            print("Input data shape:", embeddings_array.shape)
+            print("Input data type:", embeddings_array.dtype)
+            raise
 
         # Create cluster information
         clusters: Dict[int, List[str]] = {}
