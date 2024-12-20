@@ -20,7 +20,7 @@ class HDBSCANMethod(BaseClusteringMethod):
         clusterer = hdbscan.HDBSCAN(
             min_cluster_size=min_cluster_size,
             min_samples=min_samples,
-            metric='cosine',
+            metric='euclidean',
             cluster_selection_method='eom',
             cluster_selection_epsilon=cluster_selection_epsilon,
             prediction_data=True
@@ -41,13 +41,13 @@ class HierarchicalMethod(BaseClusteringMethod):
         for n_clusters in range(2, max_clusters + 1):
             clusterer = AgglomerativeClustering(
                 n_clusters=n_clusters,
-                metric='cosine',
+                metric='euclidean',
                 linkage='ward'
             )
             labels = clusterer.fit_predict(embeddings)
             
             if len(set(labels)) > 1:  # Skip if only one cluster is formed
-                score = silhouette_score(embeddings, labels, metric='cosine')
+                score = silhouette_score(embeddings, labels, metric='euclidean')
                 if score > best_score:
                     best_score = score
                     best_n_clusters = n_clusters
