@@ -7,56 +7,56 @@ from processors.clustering_processor import ClusteringProcessor
 
 def render_analysis_section():
     st.header("Compliance Analysis")
-    
+
     if not st.session_state.analysis_results:
         st.info("Please upload and process documents first")
         return
-    
+
     results = st.session_state.analysis_results
-    
+
     # Display Cluster Analysis Summary
     st.subheader("クラスタ分析の概要")
-    
+
     if 'compliance_results' in st.session_state:
         clusters = st.session_state.compliance_results
-        
+
         col1, col2, col3 = st.columns(3)
-        
+
         total_clusters = len(clusters)
         # 元の抽出結果から直接カウント
         total_reqs = len(results['legal']['requirements'])
         total_prohibs = len(results['legal']['prohibitions'])
-        
+
         with col1:
             st.metric("クラスタ数", total_clusters)
         with col2:
             st.metric("要件数", total_reqs)
         with col3:
             st.metric("禁止事項数", total_prohibs)
-        
+
         # Display cluster analysis results
         st.subheader("クラスタ別分析結果")
-    
+
     if 'embedding_processor' not in st.session_state:
         with st.spinner("Initializing analysis..."):
             processor = EmbeddingProcessor()
             # 法令文書と社内規定の両方からテキストを収集
             all_texts = []
-            
+
             # 法令文書から要件と禁止事項を収集
             for req in results['legal']['requirements']:
                 all_texts.append(req['text'])
             for prob in results['legal']['prohibitions']:
                 all_texts.append(prob['text'])
-            
+
             # 社内規定のチャンクを追加
             internal_chunks = results['internal']['chunks']
             all_texts.extend(internal_chunks)
-            
+
             print(f"Total texts for clustering: {len(all_texts)}")
             processor.create_index(all_texts)
             st.session_state.embedding_processor = processor
-    
+
     # Analyze compliance for each requirement
     if 'compliance_results' not in st.session_state:
         with st.spinner("分析を実行中..."):
@@ -67,88 +67,66 @@ def render_analysis_section():
             )
             st.session_state.compliance_results = compliance_results
             st.success("分析が完了しました")
-    
+
     # Display results
     headers = {
         'ja': "遵守状況の概要",
         'en': "Compliance Status Overview"
     }
     st.subheader(headers[st.session_state.language])
-    display_compliance_results(st.session_state.compliance_results)
-    
-    # Display detailed analysis
-    headers_detail = {
-        'ja': "詳細分析",
-        'en': "Detailed Analysis"
-    }
-    labels = {
-        'ja': {
-            'requirement': "要件",
-            'requirement_type': "要件タイプ",
-            'prohibition': "禁止事項",
-            'regular': "要求事項",
-            'matches': "社内規定との一致",
-            'matched_text': "一致したテキスト",
-            'analysis': "分析結果",
-            'score': "一致スコア"
-        },
-        'en': {
-            'requirement': "Requirement",
-            'requirement_type': "Requirement Type",
-            'prohibition': "Prohibition",
-            'regular': "Requirement",
-            'matches': "Matches in Internal Regulations",
-            'matched_text': "Matched Text",
-            'analysis': "Analysis",
-            'score': "Match Score"
-        }
-    }
-    
+    #display_compliance_results(st.session_state.compliance_results) #Removed
+
+    # Display cluster analysis results
     if 'compliance_results' in st.session_state:
         clusters = st.session_state.compliance_results
         for i, cluster in enumerate(clusters):
-            with st.expander(f"クラスタ {cluster['cluster_id']} の分析結果"):
-                # クラスタの基本情報
+            with st.expander(f"クラスタ {cluster['cluster_id']} の分析結果", expanded=True):
+                # 基本情報（メトリクス）
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("要件数", len(cluster['requirements']))
                 with col2:
                     st.metric("禁止事項数", len(cluster['prohibitions']))
                 with col3:
-                    st.metric("コンプライアンススコア", f"{cluster['analysis']['compliance_score']:.2f}")
-                
-                # クラスタの概要と所属する要件・禁止事項
-                st.markdown("### クラスタの内容")
-                st.write(cluster['summary']['comprehensive_summary'])
-                
+                    compliance_status = "遵守" if cluster['analysis']['overall_compliance'] else "未遵守"
+                    st.metric("遵守状況", compliance_status)
+
+                # クラスタの概要
+                st.markdown("### クラスタの概要")
+                st.markdown(cluster['summary']['comprehensive_summary'])
+
                 # 要件と禁止事項のリスト
-                st.markdown("#### 所属する要件・禁止事項")
-                if cluster['requirements']:
-                    st.markdown("**要件：**")
+                st.markdown("### 要件・禁止事項一覧")
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("#### 要件")
                     for req in cluster['requirements']:
                         st.markdown(f"- {req['text']}")
-                
-                if cluster['prohibitions']:
-                    st.markdown("**禁止事項：**")
+
+                with col2:
+                    st.markdown("#### 禁止事項")
                     for prob in cluster['prohibitions']:
                         st.markdown(f"- {prob['text']}")
-                
-                # コンプライアンス分析結果
+
+                # 分析結果
                 st.markdown("### 分析結果")
-                st.markdown(f"**遵守状況：** {'遵守' if cluster['analysis']['overall_compliance'] else '未遵守'}")
+                st.markdown(f"**コンプライアンススコア:** {cluster['analysis']['compliance_score']:.2f}")
                 st.write(cluster['analysis']['analysis'])
-                
+
                 # 発見事項と改善提案
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown("#### 主要な発見事項")
                     for finding in cluster['analysis']['key_findings']:
                         st.markdown(f"- {finding}")
-                
+
                 with col2:
                     st.markdown("#### 改善提案")
                     for suggestion in cluster['analysis']['improvement_suggestions']:
                         st.markdown(f"- {suggestion}")
+
+                st.markdown("---")
 
 import multiprocessing
 from functools import partial
@@ -157,13 +135,13 @@ def process_requirement(args):
     """Process a single requirement in parallel"""
     try:
         req, stored_texts, cluster_data = args
-        
+
         # Initialize processors in the child process
         embedding_processor = EmbeddingProcessor()
         embedding_processor.stored_texts = stored_texts
         embedding_processor.create_index(stored_texts)  # Recreate index
         gpt_processor = GPTProcessor()
-        
+
         # Recreate clusters from serialized data
         clusters = []
         for c_data in cluster_data:
@@ -180,14 +158,14 @@ def process_requirement(args):
             except Exception as e:
                 print(f"Error recreating cluster: {e}")
                 continue
-        
+
         # Find similar sections in internal regulations
         try:
             similar = embedding_processor.find_similar(req['text'], distance_threshold=1.5)
         except Exception as e:
             print(f"Error finding similar sections: {e}")
             similar = []
-        
+
         # Find the most relevant cluster
         try:
             query_embedding = embedding_processor.get_embedding(req['text'])
@@ -200,12 +178,12 @@ def process_requirement(args):
                     except Exception as e:
                         print(f"Error calculating distance for cluster {cluster.id}: {e}")
                         continue
-            
+
             closest_cluster = min(distances, key=lambda x: x[0])[1] if distances else (clusters[0] if clusters else None)
         except Exception as e:
             print(f"Error finding closest cluster: {e}")
             closest_cluster = clusters[0] if clusters else None
-        
+
         # Analyze compliance for each similar section
         compliance_status = []
         for match in similar:
@@ -216,7 +194,7 @@ def process_requirement(args):
                 'similarity_score': match['score'],
                 'cluster_info': closest_cluster.to_dict() if closest_cluster else {}
             })
-        
+
         return {
             'requirement': req,
             'matches': compliance_status,
@@ -232,13 +210,13 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
         if not requirements and not prohibitions:
             st.warning("要件または禁止事項が見つかりません")
             return []
-            
+
         if not embedding_processor or not embedding_processor.stored_texts:
             st.warning("内部規定が見つかりません")
             return []
-            
+
         gpt_processor = GPTProcessor()
-        
+
         # デフォルトのクラスタリングパラメータを設定
         params = {
             'min_cluster_size': 2,
@@ -246,7 +224,7 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
             'cluster_selection_epsilon': 0.2
         }
         selected_method = 'hdbscan'
-        
+
         # First, perform clustering on internal regulations
         with st.spinner("クラスタリングを実行中..."):
             try:
@@ -258,7 +236,7 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                 # データ数に基づいてパラメータを調整
                 n_samples = len(embedding_processor.stored_texts)
                 adjusted_params = params.copy()
-                
+
                 # 各メソッドに応じたパラメータの調整
                 if selected_method == 'hierarchical':
                     adjusted_params['max_clusters'] = min(
@@ -275,76 +253,76 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                         adjusted_params.get('min_cluster_size', 2),
                         max(2, n_samples // 2)
                     )
-                
+
                 # クラスタリングの実行
                 clustering_processor = ClusteringProcessor(method_name=selected_method)
                 embeddings = embedding_processor.batch_embed_texts(embedding_processor.stored_texts)
-                
+
                 print(f"Clustering with method: {selected_method}")
                 print(f"Number of samples: {n_samples}")
                 print(f"Adjusted parameters: {adjusted_params}")
-                
+
                 clusters = clustering_processor.perform_clustering(
                     embeddings=embeddings,
                     texts=embedding_processor.stored_texts,
                     **adjusted_params
                 )
-                
+
                 if not clusters:
                     st.warning("クラスタリングが正常に実行できませんでした")
                     return []
-                
+
                 st.success(f"{len(clusters)}個のクラスタを生成しました")
-                    
+
             except Exception as e:
                 st.error(f"クラスタリング中にエラーが発生しました: {str(e)}")
                 print(f"Clustering error details: {str(e)}")  # デバッグ用
                 return []
-        
+
         # Create a progress bar
         progress_bar = st.progress(0)
         status_text = st.empty()
         total_clusters = len(clusters)
-        
+
         results = []
-        
+
         # Process each cluster
         for i, cluster in enumerate(clusters):
             try:
                 # Find requirements and prohibitions belonging to this cluster
                 cluster_reqs = []
                 cluster_prohibs = []
-                
+
                 # Get query embedding for each requirement and prohibition
                 for req in requirements:
                     query_embedding = embedding_processor.get_embedding(req['text'])
                     distance = float(np.linalg.norm(query_embedding - cluster.centroid))
                     if distance < 1.5:  # Threshold for cluster membership
                         cluster_reqs.append(req)
-                
+
                 for prob in prohibitions:
                     query_embedding = embedding_processor.get_embedding(prob['text'])
                     distance = float(np.linalg.norm(query_embedding - cluster.centroid))
                     if distance < 1.5:  # Threshold for cluster membership
                         cluster_prohibs.append(prob)
-                
+
                 # Generate comprehensive summary for the cluster
                 cluster_summary = gpt_processor.summarize_cluster_requirements(
                     cluster_reqs, cluster_prohibs
                 )
-                
+
                 # Get relevant internal regulations for this cluster
                 cluster_regulations = []
                 for text in cluster.texts:
                     if len(text.strip()) > 0:
                         cluster_regulations.append(text)
-                
+
                 # Analyze compliance for the cluster
                 compliance_analysis = gpt_processor.analyze_cluster_compliance(
                     cluster_summary['comprehensive_summary'],
                     cluster_regulations
                 )
-                
+
                 # Store results
                 results.append({
                     'cluster_id': cluster.id,
@@ -354,133 +332,24 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                     'analysis': compliance_analysis,
                     'regulations': cluster_regulations
                 })
-                
+
                 # Update progress
                 progress = (i + 1) / total_clusters
                 progress_bar.progress(progress)
                 status_text.text(f"クラスタ分析進捗: {i + 1}/{total_clusters}")
-                
+
             except Exception as e:
                 st.error(f"クラスタ {cluster.id} の処理中にエラーが発生しました: {str(e)}")
                 print(f"Cluster processing error details: {e}")
                 continue
-        
+
         # Clear progress indicators
         progress_bar.empty()
         status_text.empty()
-        
+
         return results
     except Exception as e:
         st.error(f"コンプライアンス分析中にエラーが発生しました: {str(e)}")
         return []
 
-def display_compliance_results(results):
-    """Display cluster-based compliance analysis results with visualizations"""
-    if not results:
-        st.warning("分析結果がありません")
-        return
-    
-    # Validate result structure
-    def is_valid_result(r):
-        return (isinstance(r, dict) and
-                'analysis' in r and
-                isinstance(r['analysis'], dict) and
-                'overall_compliance' in r['analysis'])
-    
-    # Filter valid results and count compliant clusters
-    valid_results = [r for r in results if is_valid_result(r)]
-    if not valid_results:
-        st.error("有効な分析結果が見つかりませんでした")
-        return
-    
-    # Overall compliance visualization
-    compliant_clusters = sum(1 for r in valid_results if r['analysis']['overall_compliance'])
-    total_clusters = len(valid_results)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Compliance Status Pie Chart
-        fig_pie = go.Figure(data=[
-            go.Pie(
-                labels=['遵守', '未遵守'],
-                values=[compliant_clusters, total_clusters - compliant_clusters],
-                marker_colors=['#2ecc71', '#e74c3c']
-            )
-        ])
-        fig_pie.update_layout(title="クラスタごとの遵守状況")
-        st.plotly_chart(fig_pie)
-    
-    with col2:
-        # Compliance Scores Bar Chart
-        fig_scores = go.Figure(data=[
-            go.Bar(
-                x=[f"クラスタ {r['cluster_id']}" for r in results],
-                y=[r['analysis']['compliance_score'] for r in results],
-                marker_color='#3498db'
-            )
-        ])
-        fig_scores.update_layout(
-            title="コンプライアンススコア分布",
-            yaxis=dict(range=[0, 1]),
-            yaxis_title="スコア"
-        )
-        st.plotly_chart(fig_scores)
-    
-    # Display detailed analysis for each cluster
-    st.subheader("クラスタ別詳細分析")
-    
-    for result in results:
-        with st.expander(f"クラスタ {result['cluster_id']} の詳細分析"):
-            # Cluster summary
-            st.markdown("### クラスタの要約")
-            st.markdown("**包括的な要約:**")
-            st.write(result['summary']['comprehensive_summary'])
-            
-            st.markdown("**重要なポイント:**")
-            for point in result['summary']['key_points']:
-                st.markdown(f"- {point}")
-            
-            # Requirements and prohibitions
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("### 要件のまとめ")
-                st.write(result['summary']['requirements_summary'])
-                st.markdown("**個別要件:**")
-                for req in result['requirements']:
-                    st.markdown(f"- {req['text']}")
-            
-            with col2:
-                st.markdown("### 禁止事項のまとめ")
-                st.write(result['summary']['prohibitions_summary'])
-                st.markdown("**個別禁止事項:**")
-                for prob in result['prohibitions']:
-                    st.markdown(f"- {prob['text']}")
-            
-            # Compliance analysis
-            st.markdown("### コンプライアンス分析")
-            st.markdown(f"**全体評価:** {'遵守' if result['analysis']['overall_compliance'] else '未遵守'}")
-            st.markdown(f"**スコア:** {result['analysis']['compliance_score']:.2f}")
-            st.markdown("**詳細分析:**")
-            st.write(result['analysis']['analysis'])
-            
-            # Key findings and suggestions
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("### 主要な発見事項")
-                for finding in result['analysis']['key_findings']:
-                    st.markdown(f"- {finding}")
-            
-            with col2:
-                st.markdown("### 改善提案")
-                for suggestion in result['analysis']['improvement_suggestions']:
-                    st.markdown(f"- {suggestion}")
-            
-            # Related regulations
-            st.markdown("### 関連する社内規定")
-            st.markdown("---")
-            for i, reg in enumerate(result['regulations'], 1):
-                st.markdown(f"**規定 {i}:**")
-                st.write(reg)
-                if i < len(result['regulations']):
-                    st.markdown("---")
+#Removed display_compliance_results function
