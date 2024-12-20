@@ -105,15 +105,30 @@ class EmbeddingProcessor:
         if not self.stored_texts:
             raise ValueError("No texts have been stored yet")
 
-        print(f"Starting clustering with {len(self.stored_texts)} texts")
+        n_texts = len(self.stored_texts)
+        print(f"Starting clustering with {n_texts} texts")
+
+        # 特別なケース：データポイントが少ない場合
+        if n_texts < 3:
+            print("Too few data points for clustering, creating single cluster")
+            # 単一クラスタとして処理
+            embeddings = self.batch_embed_texts(self.stored_texts)
+            centroid = np.mean(embeddings, axis=0) if n_texts > 1 else embeddings[0]
+            
+            return [ClusterInfo(
+                id=0,
+                texts=self.stored_texts,
+                centroid=centroid,
+                representative_text=self.stored_texts[0] if self.stored_texts else None
+            )]
 
         # Extract all embeddings in parallel
         embeddings_array = self.batch_embed_texts(self.stored_texts)
         print(f"Generated embeddings array shape: {embeddings_array.shape}")
 
-        # Use very conservative parameters for small datasets
-        min_cluster_size = max(2, min(3, len(self.stored_texts) - 1))
-        min_samples = max(1, min(2, len(self.stored_texts) - 1))
+        # データセットサイズに基づいてパラメータを調整
+        min_cluster_size = max(2, min(3, n_texts - 1))
+        min_samples = 1  # 最小値を1に固定
         
         print(f"Clustering parameters: min_cluster_size={min_cluster_size}, min_samples={min_samples}")
 
@@ -129,13 +144,30 @@ class EmbeddingProcessor:
             )
             
             cluster_labels = clusterer.fit_predict(embeddings_array)
-            print(f"Clustering complete. Found {len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)} clusters")
+            n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+            print(f"Clustering complete. Found {n_clusters} clusters")
+
+            # クラスタリングが失敗した場合（全てのポイントがノイズとして分類された場合）
+            if n_clusters == 0:
+                print("No valid clusters found, creating single cluster")
+                return [ClusterInfo(
+                    id=0,
+                    texts=self.stored_texts,
+                    centroid=np.mean(embeddings_array, axis=0),
+                    representative_text=self.stored_texts[0] if self.stored_texts else None
+                )]
             
         except Exception as e:
             print(f"Detailed clustering error: {str(e)}")
             print("Input data shape:", embeddings_array.shape)
             print("Input data type:", embeddings_array.dtype)
-            raise
+            # エラーが発生した場合は単一クラスタとして処理
+            return [ClusterInfo(
+                id=0,
+                texts=self.stored_texts,
+                centroid=np.mean(embeddings_array, axis=0),
+                representative_text=self.stored_texts[0] if self.stored_texts else None
+            )]
 
         # Create cluster information
         clusters: Dict[int, List[str]] = {}
