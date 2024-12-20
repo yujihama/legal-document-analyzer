@@ -161,7 +161,7 @@ def process_requirement(args):
         
         # Find similar sections in internal regulations
         try:
-            similar = embedding_processor.find_similar(req['text'], k=3)
+            similar = embedding_processor.find_similar(req['text'], distance_threshold=1.5)
         except Exception as e:
             print(f"Error finding similar sections: {e}")
             similar = []

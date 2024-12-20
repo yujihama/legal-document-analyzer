@@ -78,20 +78,24 @@ class EmbeddingProcessor:
         self.index.add(embeddings.astype('float32'))
         self.stored_texts = texts
 
-    def find_similar(self, query: str, k: int = 5) -> List[Dict]:
-        """Find similar texts using vector similarity"""
+    def find_similar(self, query: str, distance_threshold: float = 1.5) -> List[Dict]:
+        """Find similar texts using distance-based similarity"""
         query_embedding = self.get_embedding(query)
-        D, I = self.index.search(
-            query_embedding.reshape(1, -1).astype('float32'), k)
-
+        
+        # Calculate distances to all stored texts
         results = []
-        for i in range(len(I[0])):
-            if I[0][i] < len(self.stored_texts):
+        for i, text in enumerate(self.stored_texts):
+            text_embedding = self.get_embedding(text)
+            distance = float(np.linalg.norm(query_embedding - text_embedding))
+            
+            if distance < distance_threshold:
                 results.append({
-                    'text': self.stored_texts[I[0][i]],
-                    'score': float(D[0][i])
+                    'text': text,
+                    'score': 1.0 / (1.0 + distance)  # Convert distance to similarity score
                 })
-
+        
+        # Sort by similarity score (descending)
+        results.sort(key=lambda x: x['score'], reverse=True)
         return results
 
     def perform_clustering(self, min_cluster_size: int = 2) -> List[ClusterInfo]:
