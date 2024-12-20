@@ -38,8 +38,21 @@ def render_analysis_section():
     if 'embedding_processor' not in st.session_state:
         with st.spinner("Initializing analysis..."):
             processor = EmbeddingProcessor()
+            # 法令文書と社内規定の両方からテキストを収集
+            all_texts = []
+            
+            # 法令文書から要件と禁止事項を収集
+            for req in results['legal']['requirements']:
+                all_texts.append(req['text'])
+            for prob in results['legal']['prohibitions']:
+                all_texts.append(prob['text'])
+            
+            # 社内規定のチャンクを追加
             internal_chunks = results['internal']['chunks']
-            processor.create_index(internal_chunks)
+            all_texts.extend(internal_chunks)
+            
+            print(f"Total texts for clustering: {len(all_texts)}")
+            processor.create_index(all_texts)
             st.session_state.embedding_processor = processor
     
     # Analyze compliance for each requirement
