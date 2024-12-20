@@ -293,18 +293,28 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                 cluster_reqs = []
                 cluster_prohibs = []
 
+                # Track which items have been assigned to prevent duplicates
+                if 'assigned_requirements' not in locals():
+                    assigned_requirements = set()
+                if 'assigned_prohibitions' not in locals():
+                    assigned_prohibitions = set()
+
                 # Get query embedding for each requirement and prohibition
                 for req in requirements:
-                    query_embedding = embedding_processor.get_embedding(req['text'])
-                    distance = float(np.linalg.norm(query_embedding - cluster.centroid))
-                    if distance < 1.5:  # Threshold for cluster membership
-                        cluster_reqs.append(req)
+                    if req['text'] not in assigned_requirements:
+                        query_embedding = embedding_processor.get_embedding(req['text'])
+                        distance = float(np.linalg.norm(query_embedding - cluster.centroid))
+                        if distance < 1.5:  # Threshold for cluster membership
+                            cluster_reqs.append(req)
+                            assigned_requirements.add(req['text'])
 
                 for prob in prohibitions:
-                    query_embedding = embedding_processor.get_embedding(prob['text'])
-                    distance = float(np.linalg.norm(query_embedding - cluster.centroid))
-                    if distance < 1.5:  # Threshold for cluster membership
-                        cluster_prohibs.append(prob)
+                    if prob['text'] not in assigned_prohibitions:
+                        query_embedding = embedding_processor.get_embedding(prob['text'])
+                        distance = float(np.linalg.norm(query_embedding - cluster.centroid))
+                        if distance < 1.5:  # Threshold for cluster membership
+                            cluster_prohibs.append(prob)
+                            assigned_prohibitions.add(prob['text'])
 
                 # Generate comprehensive summary for the cluster
                 cluster_summary = gpt_processor.summarize_cluster_requirements(
