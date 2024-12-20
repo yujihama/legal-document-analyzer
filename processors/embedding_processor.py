@@ -35,19 +35,57 @@ class EmbeddingProcessor:
         self._embedding_cache = {}
 
     def get_embedding(self, text: str) -> np.ndarray:
-        """Get embedding vector for text using OpenAI API with caching"""
+        """Get embedding vector for text using OpenAI API with enhanced preprocessing"""
+        # Prepare cache key with normalized text
+        cache_key = text.strip()
+        
         # Check cache first
-        if text in self._embedding_cache:
-            return self._embedding_cache[text]
+        if cache_key in self._embedding_cache:
+            return self._embedding_cache[cache_key]
+        
+        # Enhanced text preprocessing
+        processed_text = self._preprocess_text(text)
         
         # If not in cache, compute embedding
-        response = self.client.embeddings.create(
-            model="text-embedding-3-large", input=text)
-        embedding = np.array(response.data[0].embedding)
+        try:
+            response = self.client.embeddings.create(
+                model="text-embedding-3-large",
+                input=processed_text,
+                encoding_format="float"  # Ensure consistent encoding
+            )
+            embedding = np.array(response.data[0].embedding)
+            
+            # Normalize the embedding vector
+            norm = np.linalg.norm(embedding)
+            if norm > 0:
+                embedding = embedding / norm
+            
+            # Store in cache
+            self._embedding_cache[cache_key] = embedding
+            return embedding
+        except Exception as e:
+            print(f"Error getting embedding: {e}")
+            raise
+
+    def _preprocess_text(self, text: str) -> str:
+        """Enhanced text preprocessing for better semantic separation"""
+        # 基本的なテキストクリーニング
+        text = text.strip()
         
-        # Store in cache
-        self._embedding_cache[text] = embedding
-        return embedding
+        # 重要な区切り文字を強調
+        text = text.replace('。', '。 ')  # 文末の区切りを強調
+        text = text.replace('、', '、 ')  # 句読点の区切りを強調
+        
+        # 重要なキーワードの前後にスペースを追加して強調
+        keywords = ['禁止', '義務', '要件', '必須', '規則', '規定', '手順', 
+                   '基準', '対策', '管理', 'セキュリティ', '方針']
+        for keyword in keywords:
+            text = text.replace(keyword, f' {keyword} ')
+        
+        # 複数スペースを単一スペースに置換
+        text = ' '.join(text.split())
+        
+        return text
 
     def batch_embed_texts(self, texts: List[str], batch_size: int = 8) -> np.ndarray:
         """Get embeddings for a batch of texts"""
@@ -132,15 +170,17 @@ class EmbeddingProcessor:
         
         print(f"Clustering parameters: min_cluster_size={min_cluster_size}, min_samples={min_samples}")
 
-        # Perform HDBSCAN clustering with minimal parameters
+        # Perform HDBSCAN clustering with adjusted parameters for finer clustering
         try:
-            print("Attempting HDBSCAN clustering...")
+            print("Attempting HDBSCAN clustering with refined parameters...")
             clusterer = hdbscan.HDBSCAN(
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
-                metric='euclidean',
-                cluster_selection_method='leaf',
-                prediction_data=True
+                metric='cosine',  # Changed to cosine similarity for better semantic grouping
+                cluster_selection_method='eom',  # Excess of Mass for better cluster separation
+                cluster_selection_epsilon=0.2,  # Smaller epsilon for finer cluster boundaries
+                prediction_data=True,
+                alpha=0.8  # Increased alpha for more conservative cluster merging
             )
             
             cluster_labels = clusterer.fit_predict(embeddings_array)
@@ -169,16 +209,7 @@ class EmbeddingProcessor:
                 representative_text=self.stored_texts[0] if self.stored_texts else None
             )]
 
-        # Create cluster information
-        clusters: Dict[int, List[str]] = {}
-        for idx, label in enumerate(clusterer.labels_):
-            if label == -1:  # HDBSCAN marks noise points as -1
-                continue
-            if label not in clusters:
-                clusters[label] = []
-            clusters[label].append(self.stored_texts[idx])
-
-        # Create ClusterInfo objects
+        # Create and evaluate ClusterInfo objects
         self.clusters = []
         for label, texts in clusters.items():
             # Calculate centroid for the cluster
@@ -186,10 +217,55 @@ class EmbeddingProcessor:
             for text in texts:
                 embedding = self.get_embedding(text)
                 cluster_embeddings.append(embedding)
-            centroid = np.mean(cluster_embeddings, axis=0) if cluster_embeddings else None
-
+            
+            if not cluster_embeddings:
+                continue
+            
+            centroid = np.mean(cluster_embeddings, axis=0)
+            
+            # Calculate intra-cluster similarity
+            similarities = []
+            for emb in cluster_embeddings:
+                sim = np.dot(emb, centroid)
+                similarities.append(sim)
+            
+            avg_similarity = np.mean(similarities)
+            
+            # If cluster is too cohesive (very similar texts), try to split
+            if avg_similarity > 0.95 and len(texts) > 3:
+                # Try to create sub-clusters
+                sub_clusterer = hdbscan.HDBSCAN(
+                    min_cluster_size=2,
+                    min_samples=1,
+                    metric='cosine',
+                    cluster_selection_method='eom',
+                    cluster_selection_epsilon=0.1,  # Even finer granularity for sub-clusters
+                )
+                
+                try:
+                    sub_labels = sub_clusterer.fit_predict(np.array(cluster_embeddings))
+                    unique_sub_labels = set(sub_labels) - {-1}
+                    
+                    if len(unique_sub_labels) > 1:
+                        # Create sub-clusters
+                        for sub_label in unique_sub_labels:
+                            sub_texts = [texts[i] for i, l in enumerate(sub_labels) if l == sub_label]
+                            sub_embeddings = [cluster_embeddings[i] for i, l in enumerate(sub_labels) if l == sub_label]
+                            
+                            sub_centroid = np.mean(sub_embeddings, axis=0)
+                            cluster_info = ClusterInfo(
+                                id=len(self.clusters),
+                                texts=sub_texts,
+                                centroid=sub_centroid
+                            )
+                            self.clusters.append(cluster_info)
+                        continue
+                except Exception as e:
+                    print(f"Sub-clustering failed: {e}")
+            
+            # If sub-clustering failed or wasn't needed, create original cluster
             cluster_info = ClusterInfo(
-                id=label,
+                id=len(self.clusters),
                 texts=texts,
                 centroid=centroid
             )
