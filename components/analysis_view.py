@@ -293,28 +293,28 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                 cluster_reqs = []
                 cluster_prohibs = []
 
-                # Track which items have been assigned to prevent duplicates
-                if 'assigned_requirements' not in locals():
-                    assigned_requirements = set()
-                if 'assigned_prohibitions' not in locals():
-                    assigned_prohibitions = set()
-
-                # Get query embedding for each requirement and prohibition
+                # Calculate distances for all requirements to this cluster
+                req_distances = []
                 for req in requirements:
-                    if req['text'] not in assigned_requirements:
-                        query_embedding = embedding_processor.get_embedding(req['text'])
-                        distance = float(np.linalg.norm(query_embedding - cluster.centroid))
-                        if distance < 1.5:  # Threshold for cluster membership
-                            cluster_reqs.append(req)
-                            assigned_requirements.add(req['text'])
+                    query_embedding = embedding_processor.get_embedding(req['text'])
+                    distance = float(np.linalg.norm(query_embedding - cluster.centroid))
+                    req_distances.append((distance, req))
 
+                # Calculate distances for all prohibitions to this cluster
+                prob_distances = []
                 for prob in prohibitions:
-                    if prob['text'] not in assigned_prohibitions:
-                        query_embedding = embedding_processor.get_embedding(prob['text'])
-                        distance = float(np.linalg.norm(query_embedding - cluster.centroid))
-                        if distance < 1.5:  # Threshold for cluster membership
-                            cluster_prohibs.append(prob)
-                            assigned_prohibitions.add(prob['text'])
+                    query_embedding = embedding_processor.get_embedding(prob['text'])
+                    distance = float(np.linalg.norm(query_embedding - cluster.centroid))
+                    prob_distances.append((distance, prob))
+
+                # Sort by distance and get the closest items
+                req_distances.sort(key=lambda x: x[0])
+                prob_distances.sort(key=lambda x: x[0])
+
+                # Select items that are closest to this cluster (top N items)
+                cluster_size = max(2, len(requirements) // total_clusters)
+                cluster_reqs = [req for _, req in req_distances[:cluster_size] if _ < 1.5]
+                cluster_prohibs = [prob for _, prob in prob_distances[:cluster_size] if _ < 1.5]
 
                 # Generate comprehensive summary for the cluster
                 cluster_summary = gpt_processor.summarize_cluster_requirements(
