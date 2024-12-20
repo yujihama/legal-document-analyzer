@@ -127,4 +127,13 @@ class ClusteringProcessor:
         self.method = self.METHODS[method_name]
     
     def perform_clustering(self, embeddings: np.ndarray, texts: List[str], **params) -> List[ClusterInfo]:
-        return self.method.fit_predict(embeddings, texts, **params)
+        if len(texts) < 2:
+            print("Not enough data points for clustering")
+            return []
+            
+        try:
+            print(f"Starting clustering with {len(texts)} texts")
+            return self.method.fit_predict(embeddings, texts, **params)
+        except Exception as e:
+            print(f"Error during clustering: {str(e)}")
+            return []

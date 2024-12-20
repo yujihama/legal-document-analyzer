@@ -265,13 +265,39 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                     st.warning("分析対象のテキストが見つかりません")
                     return []
 
+                # データ数に基づいてパラメータを調整
+                n_samples = len(embedding_processor.stored_texts)
+                adjusted_params = params.copy()
+                
+                # 各メソッドに応じたパラメータの調整
+                if selected_method == 'hierarchical':
+                    adjusted_params['max_clusters'] = min(
+                        adjusted_params.get('max_clusters', 10),
+                        max(2, n_samples - 1)
+                    )
+                elif selected_method == 'dpmm':
+                    adjusted_params['max_components'] = min(
+                        adjusted_params.get('max_components', 10),
+                        max(2, n_samples - 1)
+                    )
+                elif selected_method == 'hdbscan':
+                    adjusted_params['min_cluster_size'] = min(
+                        adjusted_params.get('min_cluster_size', 2),
+                        max(2, n_samples // 2)
+                    )
+                
                 # クラスタリングの実行
                 clustering_processor = ClusteringProcessor(method_name=selected_method)
                 embeddings = embedding_processor.batch_embed_texts(embedding_processor.stored_texts)
+                
+                print(f"Clustering with method: {selected_method}")
+                print(f"Number of samples: {n_samples}")
+                print(f"Adjusted parameters: {adjusted_params}")
+                
                 clusters = clustering_processor.perform_clustering(
                     embeddings=embeddings,
                     texts=embedding_processor.stored_texts,
-                    **params
+                    **adjusted_params
                 )
                 
                 if not clusters:
