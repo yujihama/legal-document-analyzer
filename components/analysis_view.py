@@ -216,8 +216,14 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
             'requirements': [r['text'] for r in requirements],
             'prohibitions': [p['text'] for p in prohibitions]
         }
-        cache_key = hashlib.md5(json.dumps(cache_data, sort_keys=True).encode()).hexdigest()
-        cache_file = f"cluster_analysis_{cache_key}.json"
+        # Generate a unique key based on the content of both documents
+        if 'documents' in st.session_state:
+            legal_hash = hashlib.md5(st.session_state.documents['legal'].encode()).hexdigest()
+            internal_hash = hashlib.md5(st.session_state.documents['internal'].encode()).hexdigest()
+            cache_file = f"report_cache_{legal_hash}_{internal_hash}.json"
+        else:
+            cache_key = hashlib.md5(json.dumps(cache_data, sort_keys=True).encode()).hexdigest()
+            cache_file = f"cluster_analysis_{cache_key}.json"
 
         # Try to load cached results
         cached_results = load_processing_results(cache_file)
@@ -227,9 +233,12 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
 
         gpt_processor = GPTProcessor()
         clusters = processor.perform_clustering(min_cluster_size=2)
+        print(f"Generated clusters count: {len(clusters)}")
         if not clusters:
             st.error("クラスタが見つかりません")
             return []
+            
+        print("Cluster IDs:", [cluster.id for cluster in clusters])
 
         total_clusters = len(clusters)
         results = []
