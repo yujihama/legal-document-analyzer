@@ -139,10 +139,20 @@ def generate_compliance_report() -> ComplianceReport:
         matches=[],  # 新しい構造では使用しない
         gaps=[],  # 新しい構造では使用しない
         summary=report_content,
-        recommendations=[
-            cluster.get('analysis', {}).get('improvement_suggestions', [])
-            for cluster in clusters
-        ])
+        # 現在のクラスタ数に基づいて改善提案を生成
+        recommendations = []
+        for cluster in clusters:
+            if cluster.get('analysis') and cluster['analysis'].get('improvement_suggestions'):
+                recommendations.append(cluster['analysis']['improvement_suggestions'])
+            
+        # クラスタ数と改善提案の数が一致することを確認
+        if len(recommendations) != len(clusters):
+            print(f"Warning: Number of recommendations ({len(recommendations)}) does not match number of clusters ({len(clusters)})")
+            # 不足分は空のリストで埋める
+            while len(recommendations) < len(clusters):
+                recommendations.append([])
+            # 余分な提案は削除
+            recommendations = recommendations[:len(clusters)])
 
     return report
 
@@ -257,12 +267,19 @@ def display_report(report: ComplianceReport):
             st.markdown("---")
 
     # 改善提案セクション
-    if report.recommendations:
+    if report.recommendations and len(clusters) > 0:
         st.markdown("## 改善提案")
-        for i, cluster_recommendations in enumerate(report.recommendations, 1):
-            with st.expander(f"クラスタ {i} の改善提案"):
-                for recommendation in cluster_recommendations:
-                    st.markdown(f"- {recommendation}")
+        # 現在のクラスタ数に基づいて改善提案を表示
+        for cluster in clusters:
+            cluster_id = cluster.get('cluster_id', 'Unknown')
+            # クラスタIDに対応する改善提案を取得
+            cluster_recommendations = cluster.get('analysis', {}).get('improvement_suggestions', [])
+            with st.expander(f"クラスタ {cluster_id} の改善提案"):
+                if cluster_recommendations:
+                    for recommendation in cluster_recommendations:
+                        st.markdown(f"- {recommendation}")
+                else:
+                    st.markdown("このクラスタの改善提案はありません")
 
     # Download Options
     st.markdown("## レポートのダウンロード")
