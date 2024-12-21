@@ -140,6 +140,7 @@ def generate_compliance_report() -> ComplianceReport:
         gaps=[],  # 新しい構造では使用しない
         summary=report_content,
         recommendations=[]  # 初期化時に空のリストを設定
+    )
 
     # 現在のクラスタ数に基づいて改善提案を生成
     recommendations = []
