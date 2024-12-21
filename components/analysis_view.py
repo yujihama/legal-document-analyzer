@@ -354,11 +354,33 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
         # Save results to cache
         try:
             os.makedirs('data', exist_ok=True)
-            save_processing_results(results, cache_file)
+            print(f"Saving results to cache file: {cache_file}")
+            print(f"Results data type: {type(results)}")
+            print(f"Results length: {len(results)}")
+            
+            # Convert results to serializable format if needed
+            serializable_results = []
+            for cluster in results:
+                if isinstance(cluster, dict):
+                    serializable_results.append(cluster)
+                else:
+                    serializable_results.append(cluster.to_dict())
+            
+            save_processing_results(serializable_results, cache_file)
             print(f"Successfully saved results to cache file: {cache_file}")
+            
+            # Verify the file was created
+            if os.path.exists(cache_file):
+                print(f"Verified: Cache file exists at {cache_file}")
+                print(f"File size: {os.path.getsize(cache_file)} bytes")
+            else:
+                print(f"Warning: Cache file was not created at {cache_file}")
+                
         except Exception as e:
             print(f"Error saving results to cache: {str(e)}")
             st.error(f"キャッシュの保存中にエラーが発生しました: {str(e)}")
+            import traceback
+            print(f"Detailed error: {traceback.format_exc()}")
         return results
     except Exception as e:
         st.error(f"コンプライアンス分析中にエラーが発生しました: {str(e)}")

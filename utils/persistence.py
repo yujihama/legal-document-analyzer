@@ -23,10 +23,13 @@ def save_processing_results(data: Dict[str, Any], filename: str) -> None:
     
     filepath = output_dir / filename
     try:
+        print(f"Attempting to save results to: {filepath.absolute()}")
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, cls=NumpyJSONEncoder, ensure_ascii=False, indent=2)
+        print(f"Successfully saved results to: {filepath.absolute()}")
     except Exception as e:
         print(f"Error saving results to {filepath}: {e}")
+        raise  # Re-raise the exception to see the full error trace
 
 def load_processing_results(filename: str) -> Optional[Dict[str, Any]]:
     """Load processing results from a JSON file if it exists"""
