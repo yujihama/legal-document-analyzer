@@ -8,6 +8,7 @@ from processors.clustering_processor import ClusteringProcessor
 import hashlib
 import json
 from utils.persistence import load_processing_results, save_processing_results
+import os
 
 def render_analysis_section():
     st.header("Compliance Analysis")
@@ -352,10 +353,12 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
 
         # Save results to cache
         try:
+            os.makedirs('data', exist_ok=True)
             save_processing_results(results, cache_file)
             print(f"Successfully saved results to cache file: {cache_file}")
         except Exception as e:
             print(f"Error saving results to cache: {str(e)}")
+            st.error(f"キャッシュの保存中にエラーが発生しました: {str(e)}")
         return results
     except Exception as e:
         st.error(f"コンプライアンス分析中にエラーが発生しました: {str(e)}")
