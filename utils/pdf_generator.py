@@ -115,9 +115,12 @@ class PDFReportGenerator:
         # ラベルのスタイル設定
         pie.labels = [f'{label}\n{value}件' for label, value in zip(labels, data)]
         pie.sideLabels = True
-        pie.simpleLabels = True
-        pie.fontSize = 10
+        pie.simpleLabels = False
         pie.direction = 'clockwise'
+        
+        # ポインターラインの設定
+        pie.slices.label_pointer_piePad = 10
+        pie.slices.label_pointer_edgePad = 25
         
         # 色の設定
         chart_colors = [colors.HexColor('#2E86C1'), colors.HexColor('#E74C3C')]
