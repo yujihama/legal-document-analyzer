@@ -149,11 +149,14 @@ def generate_compliance_report() -> ComplianceReport:
     report_content = '\n'.join(summary_parts)
 
     # Create report object with updated structure
+    # 要件と禁止事項の合計を計算
+    total_items = total_requirements + total_prohibitions
+    
     report = ComplianceReport(
         timestamp=datetime.now(),
         legal_document_name="法令文書",
         internal_document_name="社内規定",
-        total_requirements=total_requirements,
+        total_requirements=total_items,  # 要件と禁止事項の合計を設定
         compliant_count=compliant_clusters,
         non_compliant_count=total_clusters - compliant_clusters,
         matches=[],  # 新しい構造では使用しない
