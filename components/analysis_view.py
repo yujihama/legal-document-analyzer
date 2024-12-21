@@ -1,6 +1,7 @@
 import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
+from typing import List, Dict, Optional
 from processors.embedding_processor import EmbeddingProcessor, ClusterInfo
 from processors.gpt_processor import GPTProcessor
 from processors.clustering_processor import ClusteringProcessor
