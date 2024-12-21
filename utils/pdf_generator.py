@@ -10,8 +10,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 
-# フォント定数
-JAPANESE_FONT = 'HeiseiKakuGo-W5'  # ReportLabの内蔵日本語フォント
+# フォント定数とスタイル設定
+DEFAULT_FONT = 'Helvetica'
+JAPANESE_FONT = 'HeiseiKakuGo-W5'
 
 class PDFReportGenerator:
     def __init__(self, output_path):
@@ -19,31 +20,48 @@ class PDFReportGenerator:
         self.elements = []
         self.styles = getSampleStyleSheet()
         
-        # 日本語フォントの設定
+        # 基本スタイル（英数字用）
+        self.base_style = ParagraphStyle(
+            'BaseStyle',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            leading=16,
+            fontName=DEFAULT_FONT
+        )
+        
+        # 日本語用スタイル
         self.jp_style = ParagraphStyle(
             'JapaneseStyle',
             parent=self.styles['Normal'],
             fontSize=10,
             leading=16,
-            encoding='utf-8',
-            fontName=JAPANESE_FONT,
+            fontName=DEFAULT_FONT,  # 基本フォントをHelveticaに設定
             wordWrap='CJK',
             allowWidows=1,
             allowOrphans=1,
             spaceAfter=10,
-            spaceBefore=10,
+            spaceBefore=10
         )
         
-        # 見出しスタイルの設定
+        # 見出しスタイルの設定（日本語対応）
         self.heading_style = ParagraphStyle(
+            'BaseHeading',
+            parent=self.styles['Heading1'],
+            fontSize=16,
+            leading=20,
+            fontName='Helvetica-Bold',
+            spaceAfter=20
+        )
+        
+        # 日本語見出しスタイル
+        self.jp_heading_style = ParagraphStyle(
             'JapaneseHeading',
             parent=self.styles['Heading1'],
             fontSize=16,
             leading=20,
-            encoding='utf-8',
-            fontName='Helvetica-Bold',
+            fontName=DEFAULT_FONT,
             wordWrap='CJK',
-            spaceAfter=20,
+            spaceAfter=20
         )
         
     def add_title(self, title):
@@ -63,25 +81,61 @@ class PDFReportGenerator:
         self.elements.append(Spacer(1, 30))
         
     def add_heading(self, text, level=1):
-        """見出しを追加"""
-        style = self.heading_style if level == 1 else ParagraphStyle(
-            'JapaneseHeading2',
-            parent=self.styles['Heading2'],
-            fontSize=14,
-            leading=18,
-            encoding='utf-8',
-            fontName='Helvetica-Bold',
-            wordWrap='CJK',
-            spaceAfter=15,
-        )
-        self.elements.append(Spacer(1, 10))
-        self.elements.append(Paragraph(text, style))
-        self.elements.append(Spacer(1, 15))
+        """見出しを追加（日本語対応）"""
+        # 日本語テキストかどうかをチェック
+        try:
+            text.encode('ascii')
+            is_japanese = False
+        except UnicodeEncodeError:
+            is_japanese = True
+        
+        if level == 1:
+            style = self.jp_heading_style if is_japanese else self.heading_style
+        else:
+            style = ParagraphStyle(
+                'Heading2',
+                parent=self.styles['Heading2'],
+                fontSize=14,
+                leading=18,
+                fontName=DEFAULT_FONT if is_japanese else 'Helvetica-Bold',
+                wordWrap='CJK' if is_japanese else None,
+                spaceAfter=15
+            )
+        
+        try:
+            self.elements.append(Spacer(1, 10))
+            self.elements.append(Paragraph(text, style))
+            self.elements.append(Spacer(1, 15))
+        except Exception as e:
+            # エラーが発生した場合、基本スタイルでフォールバック
+            fallback_style = self.heading_style
+            fallback_text = text.encode('utf-8', errors='ignore').decode('utf-8')
+            self.elements.append(Spacer(1, 10))
+            self.elements.append(Paragraph(fallback_text, fallback_style))
+            self.elements.append(Spacer(1, 15))
         
     def add_paragraph(self, text):
-        """段落を追加"""
-        self.elements.append(Paragraph(text, self.jp_style))
-        self.elements.append(Spacer(1, 10))
+        """段落を追加（日本語対応）"""
+        # スタイルの選択（日本語文字が含まれているかどうかで判断）
+        style = self.base_style
+        try:
+            # テキストをエンコード/デコードしてUnicodeチェック
+            text.encode('ascii')
+        except UnicodeEncodeError:
+            # 日本語が含まれる場合、日本語用スタイルを使用
+            style = self.jp_style
+        
+        # 段落の追加
+        try:
+            p = Paragraph(text, style)
+            self.elements.append(p)
+            self.elements.append(Spacer(1, 10))
+        except Exception as e:
+            # エラーが発生した場合、代替テキストを使用
+            fallback_text = text.encode('utf-8', errors='ignore').decode('utf-8')
+            p = Paragraph(fallback_text, self.base_style)
+            self.elements.append(p)
+            self.elements.append(Spacer(1, 10))
         
     def add_table(self, data, col_widths=None):
         """表を追加"""
