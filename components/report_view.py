@@ -15,56 +15,9 @@ def render_report_section():
         st.info("先に分析を完了してください")
         return
 
-    # Check if we have a cached report for the current files
-    cache_key = None
-    if 'documents' in st.session_state:
-        import hashlib
-        # Generate a unique key based on the content of both documents
-        legal_hash = hashlib.md5(st.session_state.documents['legal'].encode()).hexdigest()
-        internal_hash = hashlib.md5(st.session_state.documents['internal'].encode()).hexdigest()
-        cache_key = f"report_cache_{legal_hash}_{internal_hash}.json"
-    
-    report_generated = False
-    # Generate a new cache key with timestamp
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    if cache_key:
-        cache_key = f"report_cache_{timestamp}_{cache_key}"
-    else:
-        cache_key = f"report_cache_{timestamp}.json"
-    
-    # Check if we should use existing cache
-    existing_cache = None
-    try:
-        import glob
-        cache_files = glob.glob("report_cache_*.json")
-        if cache_files:
-            latest_cache = max(cache_files, key=os.path.getctime)
-            with open(latest_cache, 'r', encoding='utf-8') as f:
-                import json
-                cached_data = json.load(f)
-                existing_cache = ComplianceReport.from_dict(cached_data)
-                st.info(f"最新の分析結果（{os.path.basename(latest_cache)}）を読み込みました。")
-                report_generated = True
-                st.session_state.generated_report = existing_cache
-    except Exception as e:
-        st.warning(f"既存のキャッシュの読み込みに失敗しました: {str(e)}")
-    
-    if not report_generated:
-        with st.spinner("新しい分析レポートを生成中..."):
-            st.session_state.generated_report = generate_compliance_report()
-            # Save the report to a new cache file
-            try:
-                import json as json_module
-                # Ensure data directory exists
-                os.makedirs('data', exist_ok=True)
-                cache_path = os.path.join('data', cache_key)
-                with open(cache_path, 'w', encoding='utf-8') as f:
-                    json_module.dump(st.session_state.generated_report.to_dict(), f, ensure_ascii=False, indent=2)
-                st.success(f"分析結果を保存しました: {cache_key}")
-            except Exception as e:
-                st.warning(f"キャッシュの保存に失敗しました: {str(e)}")
-                print(f"Cache save error details: {str(e)}")  # デバッグ用ログ
-
+    with st.spinner("分析レポートを生成中..."):
+        st.session_state.generated_report = generate_compliance_report()
+        
     display_report(st.session_state.generated_report)
 
 
