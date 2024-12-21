@@ -3,11 +3,11 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, Drawing
+from reportlab.graphics.shapes import Drawing, Wedge
+from reportlab.graphics.charts.piecharts import Pie
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-import plotly.graph_objects as go
-import plotly.io as pio
 from datetime import datetime
 
 class PDFReportGenerator:
@@ -69,19 +69,26 @@ class PDFReportGenerator:
         self.elements.append(table)
         self.elements.append(Spacer(1, 20))
         
-    def add_plotly_figure(self, fig, width=500, height=300):
-        """Plotlyのグラフを追加"""
-        # 一時的な画像ファイルとして保存
-        temp_path = f"temp_plot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-        pio.write_image(fig, temp_path, format='png', width=width, height=height)
+    def add_pie_chart(self, data, labels, width=400, height=200):
+        """円グラフを追加"""
+        drawing = Drawing(width, height)
+        pie = Pie()
+        pie.x = width // 2
+        pie.y = height // 2
+        pie.width = min(width, height) * 0.8
+        pie.height = min(width, height) * 0.8
+        pie.data = data
+        pie.labels = labels
+        pie.slices.strokeWidth = 0.5
         
-        # 画像をPDFに追加
-        img = Image(temp_path, width=width, height=height)
-        self.elements.append(img)
+        # 色の設定
+        colors = [colors.HexColor('#2E86C1'), colors.HexColor('#E74C3C')]
+        for i, color in enumerate(colors):
+            pie.slices[i].fillColor = color
+        
+        drawing.add(pie)
+        self.elements.append(drawing)
         self.elements.append(Spacer(1, 20))
-        
-        # 一時ファイルを削除
-        os.remove(temp_path)
         
     def generate(self):
         """PDFを生成"""

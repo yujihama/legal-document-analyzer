@@ -297,14 +297,11 @@ def display_report(report: ComplianceReport):
             ]
             pdf_generator.add_table(summary_table_data)
             
-            # Add compliance rate chart
-            fig = go.Figure(data=[
-                go.Pie(labels=['遵守', '未遵守'],
-                      values=[report.compliant_count, report.non_compliant_count],
-                      hole=.3)
-            ])
-            fig.update_layout(title="遵守状況の分布")
-            pdf_generator.add_plotly_figure(fig)
+            # Add compliance rate chart using ReportLab
+            pdf_generator.add_pie_chart(
+                data=[report.compliant_count, report.non_compliant_count],
+                labels=['遵守', '未遵守']
+            )
             
             # Add detailed analysis
             pdf_generator.add_heading("クラスタ別詳細分析")
