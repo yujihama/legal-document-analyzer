@@ -11,7 +11,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 
 # フォント定数
-JAPANESE_FONT = 'Helvetica'
+JAPANESE_FONT = 'HeiseiKakuGo-W5'  # ReportLabの内蔵日本語フォント
 
 class PDFReportGenerator:
     def __init__(self, output_path):
