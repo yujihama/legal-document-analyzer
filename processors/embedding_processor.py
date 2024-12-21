@@ -400,11 +400,32 @@ class EmbeddingProcessor:
                 cluster_embeddings.append(embedding)
             cluster_data.append((texts, cluster_embeddings))
 
+        # Create a dictionary to store texts by cluster label
+        clustered_texts = {}
+        for idx, label in enumerate(cluster_labels):
+            if label == -1:  # Skip noise points
+                continue
+            if label not in clustered_texts:
+                clustered_texts[label] = []
+            clustered_texts[label].append(self.stored_texts[idx])
+
         # Process clusters in parallel
+        cluster_data = []
+        for label, texts in clustered_texts.items():
+            cluster_embeddings = []
+            for text in texts:
+                embedding = self.get_embedding(text)
+                cluster_embeddings.append(embedding)
+            cluster_data.append((texts, cluster_embeddings))
+
+        # Execute parallel processing
         max_workers = min(multiprocessing.cpu_count(), len(cluster_data))
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             cluster_results = list(executor.map(process_cluster, cluster_data))
 
+        # Reset clusters list before adding new results
+        self.clusters = []
+        
         # Flatten and process results
         cluster_id = 0
         for result_group in cluster_results:
