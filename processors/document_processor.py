@@ -1,4 +1,5 @@
 import tiktoken
+from datetime import datetime
 from utils.text_splitter import hierarchical_split
 from processors.gpt_processor import GPTProcessor
 from typing import List, Dict
