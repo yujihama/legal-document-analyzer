@@ -11,8 +11,20 @@ class DocumentProcessor:
     def count_tokens(self, text: str) -> int:
         return len(self.tokenizer.encode(text))
     
-    def process_legal_document(self, text: str) -> Dict:
+    def process_legal_document(self, text: str, document_id: str = None) -> Dict:
         """Process legal document and extract requirements directly"""
+        from utils.persistence import load_processing_results, save_processing_results
+        
+        # Generate document_id if not provided
+        if document_id is None:
+            document_id = str(hash(text))[:8]
+            
+        # Try to load existing results
+        cached_results = load_processing_results(f"legal_doc_{document_id}.json")
+        if cached_results:
+            print(f"Loading cached results for document {document_id}")
+            return cached_results
+            
         # Extract document context first
         doc_context = self.gpt_processor.extract_hierarchical_context(text)
         
@@ -40,11 +52,18 @@ class DocumentProcessor:
                 for prob in chunk_results['prohibitions']
             ])
         
-        return {
+        results = {
+            'document_id': document_id,
             'requirements': requirements,
             'prohibitions': prohibitions,
-            'document_context': doc_context
+            'document_context': doc_context,
+            'processed_at': datetime.now().isoformat()
         }
+        
+        # Save results
+        save_processing_results(results, f"legal_doc_{document_id}.json")
+        
+        return results
         
     def _get_chunk_context(self, doc_context: Dict, chunk_index: int, total_chunks: int) -> Dict:
         """Extract relevant context for a specific chunk based on its position"""

@@ -138,10 +138,33 @@ class EmbeddingProcessor:
         results.sort(key=lambda x: x['score'], reverse=True)
         return results
 
-    def perform_clustering(self, min_cluster_size: int = 2) -> List[ClusterInfo]:
+    def perform_clustering(self, min_cluster_size: int = 2, cache_id: str = None) -> List[ClusterInfo]:
         """Perform HDBSCAN clustering on the stored embeddings"""
+        from utils.persistence import load_processing_results, save_processing_results
+        
         if not self.stored_texts:
             raise ValueError("No texts have been stored yet")
+
+        # Generate cache_id if not provided
+        if cache_id is None:
+            cache_id = str(hash("".join(self.stored_texts)))[:8]
+            
+        # Try to load cached results
+        cached_results = load_processing_results(f"clusters_{cache_id}.json")
+        if cached_results:
+            print(f"Loading cached clustering results for {cache_id}")
+            clusters = []
+            for cluster_data in cached_results['clusters']:
+                cluster = ClusterInfo(
+                    id=cluster_data['id'],
+                    texts=cluster_data['texts'],
+                    centroid=np.array(cluster_data['centroid']) if cluster_data['centroid'] else None,
+                    representative_text=cluster_data.get('representative_text'),
+                    summary=cluster_data.get('summary')
+                )
+                clusters.append(cluster)
+            self.clusters = clusters
+            return self.clusters
 
         n_texts = len(self.stored_texts)
         print(f"Starting clustering with {n_texts} texts")
@@ -270,8 +293,16 @@ class EmbeddingProcessor:
                 centroid=centroid
             )
             self.clusters.append(cluster_info)
-
-        return self.clusters
+            
+            # Save clustering results
+            cluster_data = {
+                'cache_id': cache_id,
+                'clusters': [cluster.to_dict() for cluster in self.clusters],
+                'processed_at': datetime.now().isoformat()
+            }
+            save_processing_results(cluster_data, f"clusters_{cache_id}.json")
+            
+            return self.clusters
 
     def get_cluster_info(self, cluster_id: int) -> Optional[ClusterInfo]:
         """Get information about a specific cluster"""
