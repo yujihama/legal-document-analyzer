@@ -37,51 +37,9 @@ FONT_PATHS = [
 ]
 
 def register_fonts():
-    """利用可能なフォントを登録して登録されたフォント名のリストを返す"""
-    import glob
-    registered_fonts = []
-    
-    logger.info("フォント登録を開始...")
-    
-    try:
-        # システムフォントの検索と登録
-        for font_path_pattern in FONT_PATHS:
-            logger.debug(f"フォントパスのパターンを検索: {font_path_pattern}")
-            
-            # グロブパターンを使用してフォントファイルを検索
-            found_paths = glob.glob(font_path_pattern)
-            if found_paths:
-                logger.info(f"見つかったフォントファイル: {found_paths}")
-                
-                for font_path in found_paths:
-                    try:
-                        font_name = os.path.splitext(os.path.basename(font_path))[0]
-                        if font_name not in registered_fonts:  # 重複を避ける
-                            pdfmetrics.registerFont(TTFont(font_name, font_path))
-                            registered_fonts.append(font_name)
-                            logger.info(f"フォントを登録: {font_name} ({font_path})")
-                    except Exception as e:
-                        logger.warning(f"フォント登録失敗 ({font_path}): {str(e)}")
-                        continue
-            else:
-                logger.debug(f"フォントが見つかりませんでした: {font_path_pattern}")
-        
-        if not registered_fonts:
-            logger.warning("利用可能なフォントが見つかりませんでした。デフォルトフォントを使用します。")
-            try:
-                # デフォルトフォントとしてHelveticaを登録
-                pdfmetrics.registerFont(TTFont('Helvetica', '/nix/store/*/share/fonts/truetype/DejaVuSans.ttf'))
-                registered_fonts.append('Helvetica')
-                logger.info("デフォルトフォント(Helvetica)を登録しました")
-            except Exception as e:
-                logger.error(f"デフォルトフォント登録エラー: {str(e)}")
-        
-        logger.info(f"登録完了したフォント: {', '.join(registered_fonts)}")
-        return registered_fonts
-            
-    except Exception as e:
-        logger.error(f"フォント登録プロセスエラー: {str(e)}", exc_info=True)
-        return registered_fonts
+    """フォント登録をスキップし、デフォルトフォントのみを返す"""
+    logger.info("フォント登録をスキップします。デフォルトフォントを使用します。")
+    return ['Helvetica']
 
 # フォントパスはすでに上部で定義済み
 

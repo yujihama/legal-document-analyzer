@@ -356,87 +356,46 @@ def display_report(report: ComplianceReport):
         file_name="compliance_report.md",
         mime="text/markdown")
     
-    # PDF自動生成と表示
+    # PDF自動生成と表示（一時的に無効化）
     st.markdown("## PDFレポートプレビュー")
-    with st.spinner("PDFレポートを生成中..."):
-        # Create PDF generator
-        pdf_generator = PDFReportGenerator("compliance_report.pdf")
-        
-        # Add title
-        pdf_generator.add_title("コンプライアンス分析レポート")
-        
-        # Add summary section
-        pdf_generator.add_heading("分析概要")
-        summary_table_data = [
-            ["項目", "値"],
-            ["要件・禁止事項総数", str(total_items)],
-            ["遵守クラスタ数", str(report.compliant_count)],
-            ["遵守率", f"{compliance_rate:.1f}%"]
-        ]
-        pdf_generator.add_table(summary_table_data)
-        
-        # Add compliance rate chart using ReportLab
-        pdf_generator.add_pie_chart(
-            data=[report.compliant_count, report.non_compliant_count],
-            labels=['遵守', '未遵守']
-        )
-        
-        # Add detailed analysis
-        pdf_generator.add_heading("クラスタ別詳細分析")
-        for cluster in clusters:
-            cluster_id = cluster.get('cluster_id', 'Unknown')
-            pdf_generator.add_heading(f"クラスタ {cluster_id}", level=2)
-            
-            # Add cluster summary
-            if cluster.get('summary', {}).get('comprehensive_summary'):
-                pdf_generator.add_paragraph(cluster['summary']['comprehensive_summary'])
-            
-            # Add findings
-            if cluster.get('analysis', {}).get('key_findings'):
-                pdf_generator.add_paragraph("主要な発見事項:")
-                for finding in cluster['analysis']['key_findings']:
-                    pdf_generator.add_paragraph(f"  - {finding}")
-        
-        # Generate PDF
-        if not pdf_generator.generate():
-            st.error("PDFの生成に失敗しました。詳細はログを確認してください。")
-            return
-            
-        # Read the generated PDF file
-        with open("compliance_report.pdf", "rb") as pdf_file:
-            pdf_bytes = pdf_file.read()
-        
-        # Create download button for PDF
-        st.download_button(
-            label="PDFレポートをダウンロード",
-            data=pdf_bytes,
-            file_name="compliance_report.pdf",
-            mime="application/pdf"
-        )
-        
-        # Display PDF preview
-        if os.path.exists("compliance_report.pdf"):
-            with open("compliance_report.pdf", "rb") as pdf_file:
-                pdf_bytes = pdf_file.read()
-                
-                # PDFをiframeで表示
-                pdf_display = f'<iframe src="data:application/pdf;base64,{base64.b64encode(pdf_bytes).decode()}" width="100%" height="800" type="application/pdf"></iframe>'
-                st.markdown(pdf_display, unsafe_allow_html=True)
-                
-                # PDFの内容を検証（文字化けチェック）
-                try:
-                    import PyPDF2
-                    pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
-                    text_content = ""
-                    for page in pdf_reader.pages:
-                        text_content += page.extract_text()
-                    
-                    # 文字化けの検出
-                    if '�' in text_content or not any('\u4e00' <= c <= '\u9fff' for c in text_content):
-                        st.error("警告: PDFで日本語の文字化けが検出されました。")
-                        # エラーログの記録
-                        print(f"PDF文字化けエラー: {text_content[:200]}...")
-                    else:
-                        st.success("PDFの日本語表示は正常です。")
-                except Exception as e:
-                    st.error(f"PDFの検証中にエラーが発生しました: {str(e)}")
+    st.info("PDFレポートの生成機能は一時的に無効化されています。")
+    
+    # # PDF生成処理（コメントアウト）
+    # with st.spinner("PDFレポートを生成中..."):
+    #     # Create PDF generator
+    #     pdf_generator = PDFReportGenerator("compliance_report.pdf")
+    #     
+    #     # Add title
+    #     pdf_generator.add_title("コンプライアンス分析レポート")
+    #     
+    #     # Add summary section
+    #     pdf_generator.add_heading("分析概要")
+    #     summary_table_data = [
+    #         ["項目", "値"],
+    #         ["要件・禁止事項総数", str(total_items)],
+    #         ["遵守クラスタ数", str(report.compliant_count)],
+    #         ["遵守率", f"{compliance_rate:.1f}%"]
+    #     ]
+    #     pdf_generator.add_table(summary_table_data)
+    #     
+    #     # Add compliance rate chart using ReportLab
+    #     pdf_generator.add_pie_chart(
+    #         data=[report.compliant_count, report.non_compliant_count],
+    #         labels=['遵守', '未遵守']
+    #     )
+    #     
+    #     # Add detailed analysis
+    #     pdf_generator.add_heading("クラスタ別詳細分析")
+    #     for cluster in clusters:
+    #         cluster_id = cluster.get('cluster_id', 'Unknown')
+    #         pdf_generator.add_heading(f"クラスタ {cluster_id}", level=2)
+    #         
+    #         # Add cluster summary
+    #         if cluster.get('summary', {}).get('comprehensive_summary'):
+    #             pdf_generator.add_paragraph(cluster['summary']['comprehensive_summary'])
+    #         
+    #         # Add findings
+    #         if cluster.get('analysis', {}).get('key_findings'):
+    #             pdf_generator.add_paragraph("主要な発見事項:")
+    #             for finding in cluster['analysis']['key_findings']:
+    #                 pdf_generator.add_paragraph(f"  - {finding}")
