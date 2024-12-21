@@ -2,6 +2,8 @@ import streamlit as st
 from processors.gpt_processor import GPTProcessor
 import json
 import os
+import base64
+import io
 from models.compliance_model import ComplianceReport
 from datetime import datetime
 import plotly.graph_objects as go
@@ -306,11 +308,11 @@ def display_report(report: ComplianceReport):
                        file_name="compliance_report.md",
                        mime="text/markdown")
     
-    # PDF Download
-    if st.button("PDFレポートを生成"):
-        with st.spinner("PDFレポートを生成中..."):
-            # Create PDF generator
-            pdf_generator = PDFReportGenerator("compliance_report.pdf")
+    # PDF自動生成と表示
+    st.markdown("## PDFレポートプレビュー")
+    with st.spinner("PDFレポートを生成中..."):
+        # Create PDF generator
+        pdf_generator = PDFReportGenerator("compliance_report.pdf")
             
             # Add title
             pdf_generator.add_title("コンプライアンス分析レポート")
@@ -365,6 +367,35 @@ def display_report(report: ComplianceReport):
                 mime="application/pdf"
             )
             
-            # Clean up the temporary PDF file
+            # Display PDF preview
             if os.path.exists("compliance_report.pdf"):
-                os.remove("compliance_report.pdf")
+                with open("compliance_report.pdf", "rb") as pdf_file:
+                    pdf_bytes = pdf_file.read()
+                    st.download_button(
+                        label="PDFレポートをダウンロード",
+                        data=pdf_bytes,
+                        file_name="compliance_report.pdf",
+                        mime="application/pdf"
+                    )
+                    
+                    # PDFをiframeで表示
+                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64.b64encode(pdf_bytes).decode()}" width="100%" height="800" type="application/pdf"></iframe>'
+                    st.markdown(pdf_display, unsafe_allow_html=True)
+                    
+                    # PDFの内容を検証（文字化けチェック）
+                    try:
+                        import PyPDF2
+                        pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+                        text_content = ""
+                        for page in pdf_reader.pages:
+                            text_content += page.extract_text()
+                        
+                        # 文字化けの検出
+                        if '�' in text_content or not any('\u4e00' <= c <= '\u9fff' for c in text_content):
+                            st.error("警告: PDFで日本語の文字化けが検出されました。")
+                            # エラーログの記録
+                            print(f"PDF文字化けエラー: {text_content[:200]}...")
+                        else:
+                            st.success("PDFの日本語表示は正常です。")
+                    except Exception as e:
+                        st.error(f"PDFの検証中にエラーが発生しました: {str(e)}")
