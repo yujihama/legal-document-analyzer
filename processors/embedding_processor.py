@@ -302,24 +302,105 @@ class EmbeddingProcessor:
             
             avg_similarity = np.mean(similarities)
             
-            # If cluster is somewhat cohesive, try to split for finer granularity
-            if avg_similarity > 0.85 and len(texts) > 2:  # Reduced similarity threshold and minimum texts
-                # Try to create sub-clusters with more sensitive parameters
-                sub_clusterer = hdbscan.HDBSCAN(
-                    min_cluster_size=2,
-                    min_samples=1,
-                    metric='cosine',
-                    cluster_selection_method='leaf',  # Changed to leaf for finer sub-clustering
-                    cluster_selection_epsilon=0.05,  # Further reduced epsilon for even finer granularity
-                    alpha=0.3  # Lower alpha for more aggressive splitting
-                )
+            # Enhanced sub-clustering logic for more granular analysis
+            if avg_similarity > 0.80 and len(texts) > 2:  # Lowered similarity threshold
+                print(f"Attempting sub-clustering for cluster with {len(texts)} texts")
                 
+                # First try hierarchical clustering for sub-division
                 try:
+                    from sklearn.cluster import AgglomerativeClustering
+                    from sklearn.metrics import silhouette_score
+                    
+                    # Try different numbers of sub-clusters
+                    best_score = -1
+                    best_sub_labels = None
+                    max_sub_clusters = min(len(texts), 5)  # Limit max sub-clusters
+                    
+                    for n_clusters in range(2, max_sub_clusters + 1):
+                        clusterer = AgglomerativeClustering(
+                            n_clusters=n_clusters,
+                            metric='cosine',
+                            linkage='average'
+                        )
+                        sub_labels = clusterer.fit_predict(cluster_embeddings)
+                        
+                        if len(set(sub_labels)) > 1:
+                            score = silhouette_score(
+                                np.array(cluster_embeddings),
+                                sub_labels,
+                                metric='cosine'
+                            )
+                            if score > best_score:
+                                best_score = score
+                                best_sub_labels = sub_labels
+                    
+                    if best_sub_labels is not None and best_score > 0.1:
+                        print(f"Creating sub-clusters with silhouette score: {best_score}")
+                        unique_sub_labels = set(best_sub_labels)
+                        
+                        for sub_label in unique_sub_labels:
+                            sub_texts = [texts[i] for i, l in enumerate(best_sub_labels) if l == sub_label]
+                            sub_embeddings = [cluster_embeddings[i] for i, l in enumerate(best_sub_labels) if l == sub_label]
+                            
+                            # If sub-cluster is still large and similar, try HDBSCAN
+                            if len(sub_texts) > 3:
+                                sub_clusterer = hdbscan.HDBSCAN(
+                                    min_cluster_size=2,
+                                    min_samples=1,
+                                    metric='cosine',
+                                    cluster_selection_method='leaf',
+                                    cluster_selection_epsilon=0.05,
+                                    alpha=0.3
+                                )
+                                
+                                try:
+                                    hdb_labels = sub_clusterer.fit_predict(np.array(sub_embeddings))
+                                    unique_hdb_labels = set(hdb_labels) - {-1}
+                                    
+                                    if len(unique_hdb_labels) > 1:
+                                        for hdb_label in unique_hdb_labels:
+                                            final_texts = [sub_texts[i] for i, l in enumerate(hdb_labels) if l == hdb_label]
+                                            final_embeddings = [sub_embeddings[i] for i, l in enumerate(hdb_labels) if l == hdb_label]
+                                            final_centroid = np.mean(final_embeddings, axis=0)
+                                            
+                                            cluster_info = ClusterInfo(
+                                                id=len(self.clusters),
+                                                texts=final_texts,
+                                                centroid=final_centroid
+                                            )
+                                            self.clusters.append(cluster_info)
+                                        continue
+                                except Exception as e:
+                                    print(f"HDBSCAN sub-clustering failed: {e}")
+                            
+                            # If HDBSCAN didn't create sub-clusters, use the hierarchical clustering result
+                            sub_centroid = np.mean(sub_embeddings, axis=0)
+                            cluster_info = ClusterInfo(
+                                id=len(self.clusters),
+                                texts=sub_texts,
+                                centroid=sub_centroid
+                            )
+                            self.clusters.append(cluster_info)
+                        continue
+                        
+                except Exception as e:
+                    print(f"Hierarchical sub-clustering failed: {e}")
+                    
+                # If hierarchical clustering failed, try HDBSCAN as fallback
+                try:
+                    sub_clusterer = hdbscan.HDBSCAN(
+                        min_cluster_size=2,
+                        min_samples=1,
+                        metric='cosine',
+                        cluster_selection_method='leaf',
+                        cluster_selection_epsilon=0.05,
+                        alpha=0.3
+                    )
+                    
                     sub_labels = sub_clusterer.fit_predict(np.array(cluster_embeddings))
                     unique_sub_labels = set(sub_labels) - {-1}
                     
                     if len(unique_sub_labels) > 1:
-                        # Create sub-clusters
                         for sub_label in unique_sub_labels:
                             sub_texts = [texts[i] for i, l in enumerate(sub_labels) if l == sub_label]
                             sub_embeddings = [cluster_embeddings[i] for i, l in enumerate(sub_labels) if l == sub_label]
@@ -333,7 +414,7 @@ class EmbeddingProcessor:
                             self.clusters.append(cluster_info)
                         continue
                 except Exception as e:
-                    print(f"Sub-clustering failed: {e}")
+                    print(f"HDBSCAN fallback sub-clustering failed: {e}")
             
             # If sub-clustering failed or wasn't needed, create original cluster
             cluster_info = ClusterInfo(
