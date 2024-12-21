@@ -297,7 +297,8 @@ class GPTProcessor:
         return json.loads(response.choices[0].message.content)
 
     @retry_on_rate_limit()
-    def analyze_cluster_compliance(self, cluster_summary: str, regulations: List[str]) -> Dict:
+    def analyze_cluster_compliance(self, cluster_summary: str, regulations: List[str], num_trials: int = 3) -> Dict:
+        """複数回の判定を実行し、結果を統計的に集約する"""
         """Analyze if regulations satisfy the cluster's requirements summary"""
         prompts = {
             'ja': """
@@ -330,26 +331,46 @@ class GPTProcessor:
         input_text = f"クラスタ要約:\n{cluster_summary}\n\n社内規定:\n" + "\n\n".join(regulations)
 
         try:
-            response = self.client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[{
-                    "role": "system",
-                    "content": prompts[self.language]
-                }, {
-                    "role": "user",
-                    "content": input_text
-                }],
-                response_format={"type": "json_object"})
+            # 複数回の判定を実行
+            trial_results = []
+            for _ in range(num_trials):
+                response = self.client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[{
+                        "role": "system",
+                        "content": prompts[self.language]
+                    }, {
+                        "role": "user",
+                        "content": input_text
+                    }],
+                    response_format={"type": "json_object"})
+                
+                result = json.loads(response.choices[0].message.content)
+                trial_results.append(result)
+
+            # 結果の統計的集約
+            compliant_count = sum(1 for r in trial_results if r.get("overall_compliance", False))
+            avg_score = sum(float(r.get("compliance_score", 0.0)) for r in trial_results) / num_trials
             
-            result = json.loads(response.choices[0].message.content)
+            # 多数決による判定
+            final_compliance = compliant_count > (num_trials / 2)
             
-            # Ensure all required fields exist with default values
+            # 分析コメントの集約
+            all_findings = [finding for r in trial_results for finding in r.get("key_findings", [])]
+            all_suggestions = [sugg for r in trial_results for sugg in r.get("improvement_suggestions", [])]
+            
+            # 重複を除去
+            unique_findings = list(dict.fromkeys(all_findings))
+            unique_suggestions = list(dict.fromkeys(all_suggestions))
+            
             return {
-                "overall_compliance": result.get("overall_compliance", False),
-                "compliance_score": float(result.get("compliance_score", 0.0)),
-                "analysis": result.get("analysis", "分析を実行できませんでした"),
-                "key_findings": result.get("key_findings", ["分析結果がありません"]),
-                "improvement_suggestions": result.get("improvement_suggestions", ["改善提案がありません"])
+                "overall_compliance": final_compliance,
+                "compliance_score": avg_score,
+                "analysis": f"複数回の判定結果（{compliant_count}/{num_trials}が遵守と判定）に基づく分析です。",
+                "key_findings": unique_findings[:5],  # 上位5件まで
+                "improvement_suggestions": unique_suggestions[:5],  # 上位5件まで
+                "trial_count": num_trials,
+                "compliant_trials": compliant_count
             }
         except Exception as e:
             print(f"Error in analyze_cluster_compliance: {e}")

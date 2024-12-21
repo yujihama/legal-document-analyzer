@@ -140,8 +140,16 @@ def display_report(report: ComplianceReport):
 
     # 全体評価
     st.markdown("### 全体評価")
-    st.markdown(
-        report.summary.split('# クラスタベース分析レポート')[1].split('## クラスタ別分析結果')[0])
+    # サマリーテキストをより堅牢に処理
+    summary_text = report.summary
+    try:
+        if '# クラスタベース分析レポート' in summary_text:
+            summary_text = summary_text.split('# クラスタベース分析レポート')[1]
+        if '## クラスタ別分析結果' in summary_text:
+            summary_text = summary_text.split('## クラスタ別分析結果')[0]
+        st.markdown(summary_text)
+    except Exception as e:
+        st.markdown(report.summary)  # エラーが発生した場合は全体を表示
 
     # クラスタ別詳細分析
     st.markdown("## クラスタ別詳細分析")
@@ -161,8 +169,10 @@ def display_report(report: ComplianceReport):
             with col1:
                 compliance_status = "遵守" if "遵守状況: 遵守" in cluster_content else "未遵守"
                 score = cluster_content.split("スコア: ")[1].split("\n")[0]
-                st.metric("遵守状況", compliance_status)
-                st.metric("スコア", score)
+                trial_info = f"{cluster_content.split('スコア: ')[1].split('/')[0].split('回の判定で')[0]}/{cluster_content.split('/')[1].split('回の判定で')[0]}" if "スコア:" in cluster_content and "/" in cluster_content.split('スコア: ')[1] else ""
+                st.metric("遵守状況", f"{compliance_status} ({trial_info})")
+                st.metric("平均スコア", score)
+
 
             with col2:
                 summary = cluster_content.split("**要約:**\n")[1].split(
