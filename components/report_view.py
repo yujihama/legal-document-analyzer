@@ -138,7 +138,8 @@ def generate_compliance_report() -> ComplianceReport:
         non_compliant_count=total_clusters - compliant_clusters,
         matches=[],  # 新しい構造では使用しない
         gaps=[],  # 新しい構造では使用しない
-        summary=report_content)
+        summary=report_content,
+        recommendations=[]  # 初期化時に空のリストを設定
 
     # 現在のクラスタ数に基づいて改善提案を生成
     recommendations = []
