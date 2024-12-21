@@ -234,7 +234,18 @@ class EmbeddingProcessor:
 
         # Create and evaluate ClusterInfo objects
         self.clusters = []
-        for label, texts in clusters.items():
+        
+        # Create a dictionary to store texts by cluster label
+        clustered_texts = {}
+        for idx, label in enumerate(cluster_labels):
+            if label == -1:  # Skip noise points
+                continue
+            if label not in clustered_texts:
+                clustered_texts[label] = []
+            clustered_texts[label].append(self.stored_texts[idx])
+        
+        # Process each cluster
+        for label, texts in clustered_texts.items():
             # Calculate centroid for the cluster
             cluster_embeddings = []
             for text in texts:
@@ -293,16 +304,16 @@ class EmbeddingProcessor:
                 centroid=centroid
             )
             self.clusters.append(cluster_info)
-            
-            # Save clustering results
-            cluster_data = {
-                'cache_id': cache_id,
-                'clusters': [cluster.to_dict() for cluster in self.clusters],
-                'processed_at': datetime.now().isoformat()
-            }
-            save_processing_results(cluster_data, f"clusters_{cache_id}.json")
-            
-            return self.clusters
+        
+        # Save clustering results
+        cluster_data = {
+            'cache_id': cache_id,
+            'clusters': [cluster.to_dict() for cluster in self.clusters],
+            'processed_at': datetime.now().isoformat()
+        }
+        save_processing_results(cluster_data, f"clusters_{cache_id}.json")
+        
+        return self.clusters
 
     def get_cluster_info(self, cluster_id: int) -> Optional[ClusterInfo]:
         """Get information about a specific cluster"""
