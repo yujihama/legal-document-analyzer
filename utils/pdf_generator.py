@@ -10,12 +10,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 
-# 日本語フォントの設定
-pdfmetrics.registerFont(TTFont('HeiseiKakuGo-W5', 'HeiseiKakuGo-W5.ttc', 'UniJIS-UCS2-H'))
-pdfmetrics.registerFont(TTFont('HeiseiMin-W3', 'HeiseiMin-W3.ttc', 'UniJIS-UCS2-H'))
-
 # フォント定数
-JAPANESE_FONT = 'HeiseiKakuGo-W5'
+JAPANESE_FONT = 'Helvetica'
 
 class PDFReportGenerator:
     def __init__(self, output_path):
@@ -30,10 +26,12 @@ class PDFReportGenerator:
             fontSize=10,
             leading=16,
             encoding='utf-8',
-            fontName=JAPANESE_FONT,  # ReportLab組み込みの日本語フォント
+            fontName=JAPANESE_FONT,
             wordWrap='CJK',
             allowWidows=1,
             allowOrphans=1,
+            spaceAfter=10,
+            spaceBefore=10,
         )
         
         # 見出しスタイルの設定
@@ -95,7 +93,7 @@ class PDFReportGenerator:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2E86C1')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, -1), JAPANESE_FONT),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 12),
             ('FONTSIZE', (0, 1), (-1, -1), 10),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
