@@ -21,14 +21,27 @@ JAPANESE_FONT = DEFAULT_FONT
 
 # システムフォントパス
 FONT_PATHS = [
+    # Noto CJK Fonts
+    '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/truetype/noto/NotoSansJP-Regular.otf',
+    '/usr/share/fonts/opentype/noto/NotoSansJP-Regular.otf',
+    # IPA Fonts
+    '/usr/share/fonts/opentype/ipaexfont/ipaexg.ttf',
+    '/usr/share/fonts/truetype/ipaexfont/ipaexg.ttf',
+    '/usr/share/fonts/IPAexfont/ipaexg.ttf',
+    # Standard Japanese Fonts
+    '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf',
+    '/usr/share/fonts/truetype/japanese/TakaoPGothic.ttf',
+    # Fallback Fonts
     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
     '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
     '/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf',
 ]
 
 def register_fonts():
-    """利用可能なフォントを登録"""
-    global JAPANESE_FONT
+    """利用可能なフォントを登録して登録されたフォント名のリストを返す"""
+    registered_fonts = []
     
     logger.info("フォント登録を開始...")
     
@@ -36,6 +49,7 @@ def register_fonts():
         # デフォルトフォントの登録
         pdfmetrics.registerFont(TTFont(DEFAULT_FONT, DEFAULT_FONT))
         logger.info(f"デフォルトフォントを登録: {DEFAULT_FONT}")
+        registered_fonts.append(DEFAULT_FONT)
         
         # システムフォントの検索と登録
         for font_path in FONT_PATHS:
@@ -43,19 +57,22 @@ def register_fonts():
                 try:
                     font_name = os.path.splitext(os.path.basename(font_path))[0]
                     pdfmetrics.registerFont(TTFont(font_name, font_path))
-                    JAPANESE_FONT = font_name
+                    registered_fonts.append(font_name)
                     logger.info(f"追加フォントを登録: {font_name}")
-                    return True
                 except Exception as e:
                     logger.warning(f"フォント登録スキップ ({font_path}): {str(e)}")
                     continue
         
-        logger.info(f"デフォルトフォントを使用: {DEFAULT_FONT}")
-        return True
-        
+        if len(registered_fonts) > 1:
+            logger.info(f"登録されたフォント数: {len(registered_fonts)}")
+            return registered_fonts
+        else:
+            logger.warning("日本語フォントが登録できませんでした。デフォルトフォントのみ使用します。")
+            return registered_fonts
+            
     except Exception as e:
         logger.error(f"フォント登録エラー: {str(e)}")
-        return False
+        return registered_fonts
 
 # フォントパスはすでに上部で定義済み
 
@@ -200,45 +217,71 @@ class PDFReportGenerator:
         self.elements.append(Spacer(1, 30))
 
     def generate(self):
-        """PDFレポートを生成"""
+        """各フォントでPDFレポートを生成"""
         try:
             logger.info("PDFレポートの生成を開始")
             
+            # フォントの登録
+            registered_fonts = register_fonts()
+            if not registered_fonts:
+                logger.error("フォントが登録されていません")
+                return False
+
             # 出力ディレクトリの作成
             output_dir = os.path.dirname(self.output_path)
             if output_dir and not os.path.exists(output_dir):
                 os.makedirs(output_dir)
                 logger.info(f"出力ディレクトリを作成: {output_dir}")
+
+            success = False
+            generated_files = []
             
-            # スタイル設定の確認
-            logger.info(f"使用フォント: {JAPANESE_FONT}")
-            self.base_style.fontName = JAPANESE_FONT
-            self.jp_style.fontName = JAPANESE_FONT
-            self.jp_heading_style.fontName = JAPANESE_FONT
+            # 各フォントでPDFを生成
+            for font_name in registered_fonts:
+                try:
+                    # フォント名をファイル名に含める
+                    file_name = os.path.splitext(self.output_path)[0]
+                    font_pdf_path = f"{file_name}_{font_name}.pdf"
+                    
+                    logger.info(f"フォント {font_name} でPDFを生成中...")
+                    
+                    # スタイル設定の更新
+                    self.base_style.fontName = font_name
+                    self.jp_style.fontName = font_name
+                    self.jp_heading_style.fontName = font_name
+                    
+                    # PDFの生成
+                    doc = SimpleDocTemplate(
+                        font_pdf_path,
+                        pagesize=A4,
+                        rightMargin=72,
+                        leftMargin=72,
+                        topMargin=72,
+                        bottomMargin=72
+                    )
+                    
+                    doc.build(self.elements)
+                    
+                    # 生成結果の確認
+                    if os.path.exists(font_pdf_path):
+                        size = os.path.getsize(font_pdf_path)
+                        logger.info(f"PDF生成完了: {font_pdf_path} ({size:,} bytes)")
+                        generated_files.append(font_pdf_path)
+                        success = True
+                    
+                except Exception as e:
+                    logger.error(f"フォント {font_name} でのPDF生成エラー: {str(e)}")
+                    continue
             
-            # PDFの生成
-            doc = SimpleDocTemplate(
-                self.output_path,
-                pagesize=A4,
-                rightMargin=72,
-                leftMargin=72,
-                topMargin=72,
-                bottomMargin=72
-            )
-            
-            doc.build(self.elements)
-            
-            # 生成結果の確認
-            if os.path.exists(self.output_path):
-                size = os.path.getsize(self.output_path)
-                logger.info(f"PDF生成完了: {self.output_path} ({size:,} bytes)")
+            if success:
+                logger.info(f"生成されたPDFファイル: {', '.join(generated_files)}")
                 return True
-                
-            logger.error("PDFファイルが生成されませんでした")
+            
+            logger.error("PDFファイルを生成できませんでした")
             return False
             
         except Exception as e:
-            logger.error(f"PDF生成エラー: {str(e)}", exc_info=True)
+            logger.error(f"PDF生成プロセスエラー: {str(e)}", exc_info=True)
             return False
 
 # フォント登録の実行
