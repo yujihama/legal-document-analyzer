@@ -114,76 +114,6 @@ class PDFReportGenerator:
             spaceAfter=20
         )
 
-    def try_generate_with_all_fonts(self):
-        """全ての利用可能なフォントでPDFの生成を試みる"""
-        success = False
-        for font_family, paths in ALL_FONT_PATHS.items():
-            for font_path in paths:
-                if os.path.exists(font_path):
-                    try:
-                        print(f"{font_family}フォントでPDF生成を試みます: {font_path}")
-                        pdfmetrics.registerFont(TTFont(JAPANESE_FONT_NAME, font_path))
-                        self.generate()
-                        success = True
-                        print(f"✓ {font_family}フォントでPDFの生成に成功しました")
-                        # 生成したPDFの名前を変更してバックアップを作成
-                        backup_path = f"{self.output_path[:-4]}_{font_family}.pdf"
-                        import shutil
-                        shutil.copy2(self.output_path, backup_path)
-                    except Exception as e:
-                        print(f"✗ {font_family}フォントでの生成に失敗: {str(e)}")
-                        continue
-        
-        if not success:
-            print("警告: すべてのフォントでPDF生成に失敗しました。デフォルトフォントを使用します。")
-            global JAPANESE_FONT
-            JAPANESE_FONT = DEFAULT_FONT
-            self.generate()
-
-# フォント登録の実行
-register_japanese_font()
-
-class PDFReportGenerator:
-    def __init__(self, output_path):
-        self.output_path = output_path
-        self.elements = []
-        self.styles = getSampleStyleSheet()
-
-        # 基本スタイル（英数字用）
-        self.base_style = ParagraphStyle(
-            'BaseStyle',
-            parent=self.styles['Normal'],
-            fontSize=10,
-            leading=16,
-            fontName=DEFAULT_FONT
-        )
-
-        # 日本語用スタイル
-        self.jp_style = ParagraphStyle(
-            'JapaneseStyle',
-            parent=self.styles['Normal'],
-            fontSize=10,
-            leading=16,
-            fontName=JAPANESE_FONT,
-            wordWrap='CJK',
-            allowWidows=1,
-            allowOrphans=1,
-            spaceAfter=10,
-            spaceBefore=10,
-            encoding='utf-8'
-        )
-
-        # 見出しスタイル（日本語対応）
-        self.jp_heading_style = ParagraphStyle(
-            'JapaneseHeading',
-            parent=self.styles['Heading1'],
-            fontSize=16,
-            leading=20,
-            fontName=JAPANESE_FONT,
-            wordWrap='CJK',
-            spaceAfter=20
-        )
-
     def add_title(self, title):
         """タイトルを追加"""
         title_style = ParagraphStyle(
@@ -283,6 +213,32 @@ class PDFReportGenerator:
         self.elements.append(drawing)
         self.elements.append(Spacer(1, 30))
 
+    def try_generate_with_all_fonts(self):
+        """全ての利用可能なフォントでPDFの生成を試みる"""
+        success = False
+        for font_family, paths in ALL_FONT_PATHS.items():
+            for font_path in paths:
+                if os.path.exists(font_path):
+                    try:
+                        print(f"{font_family}フォントでPDF生成を試みます: {font_path}")
+                        pdfmetrics.registerFont(TTFont(JAPANESE_FONT_NAME, font_path))
+                        self.generate()
+                        success = True
+                        print(f"✓ {font_family}フォントでPDFの生成に成功しました")
+                        # 生成したPDFの名前を変更してバックアップを作成
+                        backup_path = f"{self.output_path[:-4]}_{font_family}.pdf"
+                        import shutil
+                        shutil.copy2(self.output_path, backup_path)
+                    except Exception as e:
+                        print(f"✗ {font_family}フォントでの生成に失敗: {str(e)}")
+                        continue
+        
+        if not success:
+            print("警告: すべてのフォントでPDF生成に失敗しました。デフォルトフォントを使用します。")
+            global JAPANESE_FONT
+            JAPANESE_FONT = DEFAULT_FONT
+            self.generate()
+
     def generate(self):
         """PDFを生成"""
         try:
@@ -298,3 +254,32 @@ class PDFReportGenerator:
             print(f"PDFファイルを生成しました: {self.output_path}")
         except Exception as e:
             print(f"PDF生成エラー: {str(e)}")
+
+    def try_generate_with_all_fonts(self):
+        """全ての利用可能なフォントでPDFの生成を試みる"""
+        success = False
+        for font_family, paths in ALL_FONT_PATHS.items():
+            for font_path in paths:
+                if os.path.exists(font_path):
+                    try:
+                        print(f"{font_family}フォントでPDF生成を試みます: {font_path}")
+                        pdfmetrics.registerFont(TTFont(font_family, font_path))
+                        self.generate()
+                        success = True
+                        print(f"✓ {font_family}フォントでPDFの生成に成功しました")
+                        # 生成したPDFの名前を変更してバックアップを作成
+                        backup_path = f"{self.output_path[:-4]}_{font_family}.pdf"
+                        import shutil
+                        shutil.copy2(self.output_path, backup_path)
+                    except Exception as e:
+                        print(f"✗ {font_family}フォントでの生成に失敗: {str(e)}")
+                        continue
+
+        if not success:
+            print("警告: すべてのフォントでPDF生成に失敗しました。デフォルトフォントを使用します。")
+            global JAPANESE_FONT
+            JAPANESE_FONT = DEFAULT_FONT
+            self.generate()
+
+# フォント登録の実行
+register_japanese_font()
