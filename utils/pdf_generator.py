@@ -21,57 +21,66 @@ JAPANESE_FONT = DEFAULT_FONT
 
 # システムフォントパス
 FONT_PATHS = [
-    # Noto CJK Fonts
-    '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
-    '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-    '/usr/share/fonts/truetype/noto/NotoSansJP-Regular.otf',
-    '/usr/share/fonts/opentype/noto/NotoSansJP-Regular.otf',
-    # IPA Fonts
-    '/usr/share/fonts/opentype/ipaexfont/ipaexg.ttf',
-    '/usr/share/fonts/truetype/ipaexfont/ipaexg.ttf',
-    '/usr/share/fonts/IPAexfont/ipaexg.ttf',
-    # Standard Japanese Fonts
-    '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf',
-    '/usr/share/fonts/truetype/japanese/TakaoPGothic.ttf',
-    # Fallback Fonts
-    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-    '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-    '/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf',
+    # Noto Fonts
+    '/nix/store/*/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+    '/nix/store/*/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+    '/nix/store/*/share/fonts/truetype/noto/NotoSansJP-Regular.otf',
+    '/nix/store/*/share/fonts/opentype/noto/NotoSansJP-Regular.otf',
+    '/nix/store/*/share/fonts/noto-fonts/NotoSans-Regular.ttf',
+    '/nix/store/*/share/fonts/noto-fonts-cjk/NotoSansCJK-Regular.ttc',
+    # Fallback System Fonts
+    '/nix/store/*/share/fonts/truetype/DejaVuSans.ttf',
+    '/nix/store/*/share/fonts/truetype/LiberationSans-Regular.ttf',
+    # Default Fonts
+    '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 ]
 
 def register_fonts():
     """利用可能なフォントを登録して登録されたフォント名のリストを返す"""
+    import glob
     registered_fonts = []
     
     logger.info("フォント登録を開始...")
     
     try:
-        # デフォルトフォントの登録
-        pdfmetrics.registerFont(TTFont(DEFAULT_FONT, DEFAULT_FONT))
-        logger.info(f"デフォルトフォントを登録: {DEFAULT_FONT}")
-        registered_fonts.append(DEFAULT_FONT)
-        
         # システムフォントの検索と登録
-        for font_path in FONT_PATHS:
-            if os.path.exists(font_path):
-                try:
-                    font_name = os.path.splitext(os.path.basename(font_path))[0]
-                    pdfmetrics.registerFont(TTFont(font_name, font_path))
-                    registered_fonts.append(font_name)
-                    logger.info(f"追加フォントを登録: {font_name}")
-                except Exception as e:
-                    logger.warning(f"フォント登録スキップ ({font_path}): {str(e)}")
-                    continue
+        for font_path_pattern in FONT_PATHS:
+            logger.debug(f"フォントパスのパターンを検索: {font_path_pattern}")
+            
+            # グロブパターンを使用してフォントファイルを検索
+            found_paths = glob.glob(font_path_pattern)
+            if found_paths:
+                logger.info(f"見つかったフォントファイル: {found_paths}")
+                
+                for font_path in found_paths:
+                    try:
+                        font_name = os.path.splitext(os.path.basename(font_path))[0]
+                        if font_name not in registered_fonts:  # 重複を避ける
+                            pdfmetrics.registerFont(TTFont(font_name, font_path))
+                            registered_fonts.append(font_name)
+                            logger.info(f"フォントを登録: {font_name} ({font_path})")
+                    except Exception as e:
+                        logger.warning(f"フォント登録失敗 ({font_path}): {str(e)}")
+                        continue
+            else:
+                logger.debug(f"フォントが見つかりませんでした: {font_path_pattern}")
         
-        if len(registered_fonts) > 1:
-            logger.info(f"登録されたフォント数: {len(registered_fonts)}")
-            return registered_fonts
-        else:
-            logger.warning("日本語フォントが登録できませんでした。デフォルトフォントのみ使用します。")
-            return registered_fonts
+        if not registered_fonts:
+            logger.warning("利用可能なフォントが見つかりませんでした。デフォルトフォントを使用します。")
+            try:
+                # デフォルトフォントとしてHelveticaを登録
+                pdfmetrics.registerFont(TTFont('Helvetica', '/nix/store/*/share/fonts/truetype/DejaVuSans.ttf'))
+                registered_fonts.append('Helvetica')
+                logger.info("デフォルトフォント(Helvetica)を登録しました")
+            except Exception as e:
+                logger.error(f"デフォルトフォント登録エラー: {str(e)}")
+        
+        logger.info(f"登録完了したフォント: {', '.join(registered_fonts)}")
+        return registered_fonts
             
     except Exception as e:
-        logger.error(f"フォント登録エラー: {str(e)}")
+        logger.error(f"フォント登録プロセスエラー: {str(e)}", exc_info=True)
         return registered_fonts
 
 # フォントパスはすでに上部で定義済み
