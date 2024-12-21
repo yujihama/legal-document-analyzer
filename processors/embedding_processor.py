@@ -393,14 +393,9 @@ class EmbeddingProcessor:
 
         # Prepare data for parallel processing
         cluster_data = []
-        for label, texts in clustered_texts.items():
-            cluster_embeddings = []
-            for text in texts:
-                embedding = self.get_embedding(text)
-                cluster_embeddings.append(embedding)
-            cluster_data.append((texts, cluster_embeddings))
+        embeddings_dict = {}  # Cache embeddings
 
-        # Create a dictionary to store texts by cluster label
+        # First, create clustered_texts dictionary
         clustered_texts = {}
         for idx, label in enumerate(cluster_labels):
             if label == -1:  # Skip noise points
@@ -409,23 +404,28 @@ class EmbeddingProcessor:
                 clustered_texts[label] = []
             clustered_texts[label].append(self.stored_texts[idx])
 
-        # Process clusters in parallel
-        cluster_data = []
+            # Cache the embedding
+            text = self.stored_texts[idx]
+            if text not in embeddings_dict:
+                embeddings_dict[text] = embeddings_array[idx]
+
+        # Prepare data for parallel processing
         for label, texts in clustered_texts.items():
-            cluster_embeddings = []
-            for text in texts:
-                embedding = self.get_embedding(text)
-                cluster_embeddings.append(embedding)
+            cluster_embeddings = [embeddings_dict[text] for text in texts]
             cluster_data.append((texts, cluster_embeddings))
 
-        # Execute parallel processing
+        # Execute parallel processing with proper data preparation
         max_workers = min(multiprocessing.cpu_count(), len(cluster_data))
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            cluster_results = list(executor.map(process_cluster, cluster_data))
+        if max_workers > 0:
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                cluster_results = list(executor.map(process_cluster, cluster_data))
+        else:
+            # Fallback to sequential processing if no clusters
+            cluster_results = [process_cluster(data) for data in cluster_data]
 
         # Reset clusters list before adding new results
         self.clusters = []
-        
+
         # Flatten and process results
         cluster_id = 0
         for result_group in cluster_results:
