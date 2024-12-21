@@ -11,8 +11,6 @@ from utils.pdf_generator import PDFReportGenerator
 
 
 def render_report_section():
-    # st.header("コンプライアンスレポート")
-
     if not st.session_state.get('compliance_results'):
         st.info("先に分析を完了してください")
         return
@@ -150,8 +148,6 @@ def generate_compliance_report() -> ComplianceReport:
 
 def display_report(report: ComplianceReport):
     """Display the cluster-based compliance report in the UI"""
-    # ヘッダー情報
-    #st.markdown("# コンプライアンス分析レポート")
     st.header("評価結果レポート")
     st.markdown(f"**生成日時:** {report.timestamp.strftime('%Y年%m月%d日 %H:%M')}")
 
@@ -224,7 +220,6 @@ def display_report(report: ComplianceReport):
                     st.metric("遵守状況", "解析エラー")
                     st.metric("平均スコア", "N/A")
 
-
             with col2:
                 summary = cluster_content.split("**要約:**\n")[1].split(
                     "\n**主要な発見事項:**")[0]
@@ -281,10 +276,11 @@ def display_report(report: ComplianceReport):
         ensure_ascii=False,
         indent=2)
 
-    st.download_button(label="JSONレポートをダウンロード",
-                       data=json_report,
-                       file_name="compliance_report.json",
-                       mime="application/json")
+    st.download_button(
+        label="JSONレポートをダウンロード",
+        data=json_report,
+        file_name="compliance_report.json",
+        mime="application/json")
 
     # Markdown Download
     markdown_report = f"""# 分析レポート
@@ -303,10 +299,11 @@ def display_report(report: ComplianceReport):
 {chr(10).join([f"- {item}" for sublist in report.recommendations for item in sublist])}
 """
 
-    st.download_button(label="Markdownレポートをダウンロード",
-                       data=markdown_report,
-                       file_name="compliance_report.md",
-                       mime="text/markdown")
+    st.download_button(
+        label="Markdownレポートをダウンロード",
+        data=markdown_report,
+        file_name="compliance_report.md",
+        mime="text/markdown")
     
     # PDF自動生成と表示
     st.markdown("## PDFレポートプレビュー")
@@ -366,36 +363,30 @@ def display_report(report: ComplianceReport):
             file_name="compliance_report.pdf",
             mime="application/pdf"
         )
-            
-            # Display PDF preview
-            if os.path.exists("compliance_report.pdf"):
-                with open("compliance_report.pdf", "rb") as pdf_file:
-                    pdf_bytes = pdf_file.read()
-                    st.download_button(
-                        label="PDFレポートをダウンロード",
-                        data=pdf_bytes,
-                        file_name="compliance_report.pdf",
-                        mime="application/pdf"
-                    )
+        
+        # Display PDF preview
+        if os.path.exists("compliance_report.pdf"):
+            with open("compliance_report.pdf", "rb") as pdf_file:
+                pdf_bytes = pdf_file.read()
+                
+                # PDFをiframeで表示
+                pdf_display = f'<iframe src="data:application/pdf;base64,{base64.b64encode(pdf_bytes).decode()}" width="100%" height="800" type="application/pdf"></iframe>'
+                st.markdown(pdf_display, unsafe_allow_html=True)
+                
+                # PDFの内容を検証（文字化けチェック）
+                try:
+                    import PyPDF2
+                    pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+                    text_content = ""
+                    for page in pdf_reader.pages:
+                        text_content += page.extract_text()
                     
-                    # PDFをiframeで表示
-                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64.b64encode(pdf_bytes).decode()}" width="100%" height="800" type="application/pdf"></iframe>'
-                    st.markdown(pdf_display, unsafe_allow_html=True)
-                    
-                    # PDFの内容を検証（文字化けチェック）
-                    try:
-                        import PyPDF2
-                        pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
-                        text_content = ""
-                        for page in pdf_reader.pages:
-                            text_content += page.extract_text()
-                        
-                        # 文字化けの検出
-                        if '�' in text_content or not any('\u4e00' <= c <= '\u9fff' for c in text_content):
-                            st.error("警告: PDFで日本語の文字化けが検出されました。")
-                            # エラーログの記録
-                            print(f"PDF文字化けエラー: {text_content[:200]}...")
-                        else:
-                            st.success("PDFの日本語表示は正常です。")
-                    except Exception as e:
-                        st.error(f"PDFの検証中にエラーが発生しました: {str(e)}")
+                    # 文字化けの検出
+                    if '�' in text_content or not any('\u4e00' <= c <= '\u9fff' for c in text_content):
+                        st.error("警告: PDFで日本語の文字化けが検出されました。")
+                        # エラーログの記録
+                        print(f"PDF文字化けエラー: {text_content[:200]}...")
+                    else:
+                        st.success("PDFの日本語表示は正常です。")
+                except Exception as e:
+                    st.error(f"PDFの検証中にエラーが発生しました: {str(e)}")
