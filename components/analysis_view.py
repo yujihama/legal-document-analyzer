@@ -226,7 +226,7 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
             return cached_results
 
         gpt_processor = GPTProcessor()
-        clusters = processor.get_clusters()
+        clusters = processor.perform_clustering(min_cluster_size=2)
         if not clusters:
             st.error("クラスタが見つかりません")
             return []
