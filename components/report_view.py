@@ -223,29 +223,36 @@ def display_report(report: ComplianceReport):
                 else:
                     st.markdown("要約情報がありません")
 
-            # 所属する要件・禁止事項
-            st.markdown("#### 所属する要件・禁止事項")
-            if "**対象となる主な要件:**" in cluster_content:
-                requirements = cluster_content.split(
-                    "**対象となる主な要件:**")[1].split("\n**主要な発見事項:**")[0]
-                st.markdown(requirements)
+            # 要件と禁止事項のリスト
+            st.markdown("### 要件・禁止事項一覧")
+            col1, col2 = st.columns(2)
 
-            # 分析結果セクション
+            with col1:
+                st.markdown("#### 要件")
+                for req in cluster['requirements']:
+                    st.markdown(f"- {req['text']}")
+
+            with col2:
+                st.markdown("#### 禁止事項")
+                for prob in cluster['prohibitions']:
+                    st.markdown(f"- {prob['text']}")
+
+            # 分析結果
             st.markdown("### 分析結果")
-            st.markdown("---")
+            st.markdown(f"**コンプライアンススコア:** {cluster['analysis']['compliance_score']:.2f}")
+            st.write(cluster['analysis']['analysis'])
 
-            # 社内規定との整合性分析
-            if "**分析コンテキスト:**" in cluster_content:
-                st.markdown("#### 社内規定との整合性分析")
-                analysis = cluster_content.split("**分析コンテキスト:**")[1].strip()
-                st.markdown(analysis)
+            # 発見事項と改善提案
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("#### 主要な発見事項")
+                for finding in cluster['analysis']['key_findings']:
+                    st.markdown(f"- {finding}")
 
-            # 主要な発見事項
-            st.markdown("#### 主要な発見事項")
-            findings = cluster_content.split("**主要な発見事項:**")[1].strip()
-            for finding in findings.split("\n"):
-                if finding.strip() and finding.startswith("-"):
-                    st.markdown(finding)
+            with col2:
+                st.markdown("#### 改善提案")
+                for suggestion in cluster['analysis']['improvement_suggestions']:
+                    st.markdown(f"- {suggestion}")
 
             st.markdown("---")
 
