@@ -195,7 +195,8 @@ def display_report(report: ComplianceReport):
     col1, col2, col3 = st.columns(3)
 
     # 要件・禁止事項の総数を計算（要件数と禁止事項数の合計）
-    total_items = report.total_requirements if hasattr(report, 'total_requirements') else 0
+    total_items = sum(len(cluster.get('requirements', [])) for cluster in st.session_state.compliance_results) + \
+                 sum(len(cluster.get('prohibitions', [])) for cluster in st.session_state.compliance_results)
 
     with col1:
         st.metric("要件・禁止事項の総数", total_items)
