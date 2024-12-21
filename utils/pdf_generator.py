@@ -10,21 +10,43 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 
+# 日本語フォントの登録（フォールバックメカニズム付き）
+def register_japanese_font():
+    common_fonts = [
+        ('MS-Gothic', 'msgothic.ttc'),
+        ('MS-PGothic', 'msgothic.ttc'),
+        ('Arial-Unicode-MS', 'arial-unicode-ms.ttf')
+    ]
+    
+    for font_name, font_file in common_fonts:
+        try:
+            pdfmetrics.registerFont(TTFont(font_name, font_file))
+            return font_name
+        except:
+            continue
+    
+    # フォールバック：基本フォントを使用
+    return 'Helvetica'
+
+default_font = register_japanese_font()
+
 class PDFReportGenerator:
     def __init__(self, output_path):
         self.output_path = output_path
         self.elements = []
         self.styles = getSampleStyleSheet()
         
-        # 日本語フォントのスタイル設定
+        # 日本語フォントの設定
         self.jp_style = ParagraphStyle(
             'JapaneseStyle',
             parent=self.styles['Normal'],
             fontSize=10,
-            leading=14,
+            leading=16,
             encoding='utf-8',
-            fontName='Helvetica',
+            fontName=default_font,  # システムで利用可能な日本語フォント
             wordWrap='CJK',
+            allowWidows=1,
+            allowOrphans=1,
         )
         
         # 見出しスタイルの設定
@@ -83,15 +105,19 @@ class PDFReportGenerator:
             
         table = Table(data, colWidths=col_widths)
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2E86C1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), default_font),
             ('FONTSIZE', (0, 0), (-1, 0), 12),
             ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
             ('BACKGROUND', (0, 1), (-1, -1), colors.white),
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#CCCCCC'))
         ]))
         self.elements.append(table)
         self.elements.append(Spacer(1, 20))
