@@ -22,6 +22,21 @@ class PDFReportGenerator:
             parent=self.styles['Normal'],
             fontSize=10,
             leading=14,
+            encoding='utf-8',
+            fontName='Helvetica',
+            wordWrap='CJK',
+        )
+        
+        # 見出しスタイルの設定
+        self.heading_style = ParagraphStyle(
+            'JapaneseHeading',
+            parent=self.styles['Heading1'],
+            fontSize=16,
+            leading=20,
+            encoding='utf-8',
+            fontName='Helvetica-Bold',
+            wordWrap='CJK',
+            spaceAfter=20,
         )
         
     def add_title(self, title):
@@ -31,23 +46,35 @@ class PDFReportGenerator:
             parent=self.styles['Title'],
             fontSize=24,
             spaceAfter=30,
+            encoding='utf-8',
+            fontName='Helvetica-Bold',
+            wordWrap='CJK',
+            alignment=1,  # 中央揃え
         )
-        self.elements.append(Paragraph(title, title_style))
         self.elements.append(Spacer(1, 20))
+        self.elements.append(Paragraph(title, title_style))
+        self.elements.append(Spacer(1, 30))
         
     def add_heading(self, text, level=1):
         """見出しを追加"""
-        if level == 1:
-            style = self.styles['Heading1']
-        else:
-            style = self.styles['Heading2']
+        style = self.heading_style if level == 1 else ParagraphStyle(
+            'JapaneseHeading2',
+            parent=self.styles['Heading2'],
+            fontSize=14,
+            leading=18,
+            encoding='utf-8',
+            fontName='Helvetica-Bold',
+            wordWrap='CJK',
+            spaceAfter=15,
+        )
+        self.elements.append(Spacer(1, 10))
         self.elements.append(Paragraph(text, style))
-        self.elements.append(Spacer(1, 12))
+        self.elements.append(Spacer(1, 15))
         
     def add_paragraph(self, text):
         """段落を追加"""
         self.elements.append(Paragraph(text, self.jp_style))
-        self.elements.append(Spacer(1, 12))
+        self.elements.append(Spacer(1, 10))
         
     def add_table(self, data, col_widths=None):
         """表を追加"""
@@ -69,17 +96,26 @@ class PDFReportGenerator:
         self.elements.append(table)
         self.elements.append(Spacer(1, 20))
         
-    def add_pie_chart(self, data, labels, width=400, height=200):
+    def add_pie_chart(self, data, labels, width=400, height=300):
         """円グラフを追加"""
+        # グラフ用のスペースを確保
+        self.elements.append(Spacer(1, 20))
+        
+        # グラフの作成
         drawing = Drawing(width, height)
         pie = Pie()
         pie.x = width // 2
-        pie.y = height // 2
-        pie.width = min(width, height) * 0.8
-        pie.height = min(width, height) * 0.8
+        pie.y = height // 2 - 20  # 少し上に調整
+        pie.width = min(width, height) * 0.6
+        pie.height = min(width, height) * 0.6
         pie.data = data
         pie.labels = labels
         pie.slices.strokeWidth = 0.5
+        
+        # ラベルのスタイル設定
+        pie.labels = [f'{label}\n{value}件' for label, value in zip(labels, data)]
+        pie.labelRadius = 1.2
+        pie.fontSize = 10
         
         # 色の設定
         chart_colors = [colors.HexColor('#2E86C1'), colors.HexColor('#E74C3C')]
@@ -87,8 +123,10 @@ class PDFReportGenerator:
             pie.slices[i].fillColor = color
         
         drawing.add(pie)
+        
+        # グラフの追加
         self.elements.append(drawing)
-        self.elements.append(Spacer(1, 20))
+        self.elements.append(Spacer(1, 30))
         
     def generate(self):
         """PDFを生成"""
