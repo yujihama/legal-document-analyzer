@@ -228,8 +228,11 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
         # Try to load cached results
         cached_results = load_processing_results(cache_file)
         if cached_results:
-            print(f"Loading cached cluster analysis results for {cache_key}")
+            print(f"Loading cached cluster analysis results from {cache_file}")
+            print(f"Cached clusters count: {len(cached_results)}")
             return cached_results
+        else:
+            print("No cached results found, performing new clustering")
 
         gpt_processor = GPTProcessor()
         clusters = processor.perform_clustering(min_cluster_size=2)

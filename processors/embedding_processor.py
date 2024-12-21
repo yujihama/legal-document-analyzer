@@ -223,9 +223,10 @@ class EmbeddingProcessor:
         embeddings_array = self.batch_embed_texts(self.stored_texts)
         print(f"Generated embeddings array shape: {embeddings_array.shape}")
 
-        # データセットサイズに基づいてパラメータを調整
-        min_cluster_size = max(2, min(3, n_texts - 1))
-        min_samples = 1  # 最小値を1に固定
+        # クラスタリングパラメータを明示的に設定
+        min_cluster_size = 2  # 最小クラスタサイズを2に固定
+        min_samples = 1  # 最小サンプル数を1に固定
+        print(f"Clustering parameters: min_cluster_size={min_cluster_size}, min_samples={min_samples}")
         
         print(f"Clustering parameters: min_cluster_size={min_cluster_size}, min_samples={min_samples}")
 
