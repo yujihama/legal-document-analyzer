@@ -350,8 +350,10 @@ def display_report(report: ComplianceReport):
                         pdf_generator.add_paragraph(f"  {finding}")
         
         # Generate PDF
-        pdf_generator.try_generate_with_all_fonts()
-        
+        if not pdf_generator.generate():
+            st.error("PDFの生成に失敗しました。詳細はログを確認してください。")
+            return
+            
         # Read the generated PDF file
         with open("compliance_report.pdf", "rb") as pdf_file:
             pdf_bytes = pdf_file.read()
