@@ -15,16 +15,26 @@ class DocumentProcessor:
     def process_legal_document(self, text: str, document_id: str = None) -> Dict:
         """Process legal document and extract requirements directly"""
         from utils.persistence import load_processing_results, save_processing_results
+        import hashlib
         
-        # Generate document_id if not provided
+        # Generate consistent document_id based on content hash
         if document_id is None:
-            document_id = str(hash(text))[:8]
-            
-        # Try to load existing results
-        cached_results = load_processing_results(f"legal_doc_{document_id}.json")
-        if cached_results:
-            print(f"Loading cached results for document {document_id}")
-            return cached_results
+            document_id = hashlib.md5(text.encode()).hexdigest()[:8]
+        
+        # Check all existing files in data directory for matching content
+        import os
+        from pathlib import Path
+        
+        data_dir = Path("data")
+        for file_path in data_dir.glob("legal_doc_*.json"):
+            try:
+                cached_results = load_processing_results(file_path.name)
+                if cached_results and cached_results.get('document_hash') == document_id:
+                    print(f"Loading cached results from {file_path.name}")
+                    return cached_results
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}")
+                continue
             
         # Extract document context first
         doc_context = self.gpt_processor.extract_hierarchical_context(text)
@@ -55,6 +65,7 @@ class DocumentProcessor:
         
         results = {
             'document_id': document_id,
+            'document_hash': document_id,
             'requirements': requirements,
             'prohibitions': prohibitions,
             'document_context': doc_context,
