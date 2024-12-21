@@ -10,25 +10,12 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 
-# 日本語フォントの登録（フォールバックメカニズム付き）
-def register_japanese_font():
-    common_fonts = [
-        ('MS-Gothic', 'msgothic.ttc'),
-        ('MS-PGothic', 'msgothic.ttc'),
-        ('Arial-Unicode-MS', 'arial-unicode-ms.ttf')
-    ]
-    
-    for font_name, font_file in common_fonts:
-        try:
-            pdfmetrics.registerFont(TTFont(font_name, font_file))
-            return font_name
-        except:
-            continue
-    
-    # フォールバック：基本フォントを使用
-    return 'Helvetica'
+# 日本語フォントの設定
+pdfmetrics.registerFont(TTFont('HeiseiKakuGo-W5', 'HeiseiKakuGo-W5.ttc', 'UniJIS-UCS2-H'))
+pdfmetrics.registerFont(TTFont('HeiseiMin-W3', 'HeiseiMin-W3.ttc', 'UniJIS-UCS2-H'))
 
-default_font = register_japanese_font()
+# フォント定数
+JAPANESE_FONT = 'HeiseiKakuGo-W5'
 
 class PDFReportGenerator:
     def __init__(self, output_path):
@@ -43,7 +30,7 @@ class PDFReportGenerator:
             fontSize=10,
             leading=16,
             encoding='utf-8',
-            fontName=default_font,  # システムで利用可能な日本語フォント
+            fontName=JAPANESE_FONT,  # ReportLab組み込みの日本語フォント
             wordWrap='CJK',
             allowWidows=1,
             allowOrphans=1,
@@ -108,7 +95,7 @@ class PDFReportGenerator:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2E86C1')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, -1), default_font),
+            ('FONTNAME', (0, 0), (-1, -1), JAPANESE_FONT),
             ('FONTSIZE', (0, 0), (-1, 0), 12),
             ('FONTSIZE', (0, 1), (-1, -1), 10),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
