@@ -15,7 +15,48 @@ def render_report_section():
         st.info("先に分析を完了してください")
         return
 
-    with st.spinner("分析レポートを生成中..."):
+    # クラスタ分析結果のファイル名を生成
+    analysis_file = None
+    if 'documents' in st.session_state:
+        import hashlib
+        legal_hash = hashlib.md5(st.session_state.documents['legal'].encode()).hexdigest()[:8]
+        internal_hash = hashlib.md5(st.session_state.documents['internal'].encode()).hexdigest()[:8]
+        analysis_file = f"data/cluster_analysis_{legal_hash}_{internal_hash}.json"
+
+    # 既存の分析結果を確認
+    import os
+    if analysis_file and os.path.exists(analysis_file):
+        try:
+            with open(analysis_file, 'r', encoding='utf-8') as f:
+                import json
+                st.session_state.compliance_results = json.load(f)
+                st.success("既存の分析結果を読み込みました")
+        except Exception as e:
+            st.warning(f"分析結果の読み込みに失敗しました: {str(e)}")
+            st.session_state.compliance_results = None
+    
+    # 分析結果がない場合は新規分析を実行
+    if not st.session_state.get('compliance_results'):
+        with st.spinner("クラスタ分析を実行中..."):
+            results = analyze_compliance(
+                st.session_state.analysis_results['legal']['requirements'],
+                st.session_state.analysis_results['legal']['prohibitions'],
+                st.session_state.embedding_processor
+            )
+            st.session_state.compliance_results = results
+            
+            # 分析結果を保存
+            if analysis_file:
+                try:
+                    os.makedirs('data', exist_ok=True)
+                    with open(analysis_file, 'w', encoding='utf-8') as f:
+                        json.dump(results, f, ensure_ascii=False, indent=2)
+                    st.success("分析結果を保存しました")
+                except Exception as e:
+                    st.warning(f"分析結果の保存に失敗しました: {str(e)}")
+
+    # レポート生成
+    with st.spinner("レポートを生成中..."):
         st.session_state.generated_report = generate_compliance_report()
         
     display_report(st.session_state.generated_report)
@@ -28,9 +69,14 @@ def generate_compliance_report() -> ComplianceReport:
     if not st.session_state.get('compliance_results'):
         raise ValueError("分析結果が見つかりません")
 
+    # クラスタ分析結果を取得
     clusters = st.session_state.compliance_results
+    
+    if not clusters:
+        st.error("クラスタ分析結果が空です")
+        return None
 
-    # Count total requirements and compliant clusters
+    # 基本メトリクスを計算
     total_clusters = len(clusters)
     compliant_clusters = sum(
         1 for cluster in clusters
@@ -45,17 +91,24 @@ def generate_compliance_report() -> ComplianceReport:
         total_requirements = 0
         total_prohibitions = 0
 
-    # Generate summary content
+    # レポートのサマリーを生成
     print(f"Generating report for {len(clusters)} clusters")
+    
+    # メトリクス計算を最適化
+    total_requirements = sum(len(cluster.get('requirements', [])) for cluster in clusters)
+    total_prohibitions = sum(len(cluster.get('prohibitions', [])) for cluster in clusters)
+    
     summary_parts = [
-        "# クラスタベース分析レポート\n", f"## 概要\n",
+        "# クラスタベース分析レポート\n", 
+        f"## 概要\n",
         f"以下の分析結果は、{len(clusters)}個のクラスタに基づいています：\n",
         f"- 分析対象の要件総数: {total_requirements}件",
         f"- 分析対象の禁止事項総数: {total_prohibitions}件",
         f"- 遵守クラスタ数: {compliant_clusters}個",
         f"- 全体遵守率: {(compliant_clusters / total_clusters * 100):.1f}% ({compliant_clusters}/{total_clusters})",
         "\nこの分析結果は、各要件と禁止事項を意味的に関連するグループ（クラスタ）に分類し、",
-        "各クラスタごとの遵守状況を総合的に評価したものです。\n", "\n## クラスタ別分析結果\n"
+        "各クラスタごとの遵守状況を総合的に評価したものです。\n",
+        "\n## クラスタ別分析結果\n"
     ]
 
     # Add cluster-specific summaries
