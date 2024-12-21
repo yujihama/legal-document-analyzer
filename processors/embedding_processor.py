@@ -235,12 +235,12 @@ class EmbeddingProcessor:
             print("Attempting HDBSCAN clustering with refined parameters...")
             clusterer = hdbscan.HDBSCAN(
                 min_cluster_size=min_cluster_size,
-                min_samples=min_samples,
+                min_samples=1,  # Fixed to 1 to allow smaller clusters
                 metric='cosine',  # Cosine similarity for semantic grouping
-                cluster_selection_method='leaf',  # Changed to leaf for finer clustering
-                cluster_selection_epsilon=0.1,  # Reduced epsilon for stricter cluster boundaries
+                cluster_selection_method='leaf',  # Using leaf for finest possible clustering
+                cluster_selection_epsilon=0.05,  # Further reduced epsilon for even stricter boundaries
                 prediction_data=True,
-                alpha=0.5  # Reduced alpha for less aggressive cluster merging
+                alpha=0.3  # Further reduced alpha for more aggressive cluster splitting
             )
             
             cluster_labels = clusterer.fit_predict(embeddings_array)
