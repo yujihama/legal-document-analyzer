@@ -102,7 +102,7 @@ def render_upload_section():
                         'internal': {'debug_info': []}
                     }
                 
-                processor = DocumentProcessor(language=st.session_state.language)
+                processor = DocumentProcessor(language='ja')  # 日本語に固定
                 
                 # Process legal document
                 st.info("Step 1: Processing legal document...")
