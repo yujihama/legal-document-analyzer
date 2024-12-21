@@ -57,17 +57,7 @@ def register_fonts():
         logger.error(f"フォント登録エラー: {str(e)}")
         return False
 
-# 利用可能な全てのフォントパスを定義
-FONT_PATHS = [
-    # Linux - IPA fonts
-    '/usr/share/fonts/opentype/ipaexfont/ipaexg.ttf',
-    '/usr/share/fonts/truetype/ipaexfont/ipaexg.ttf',
-    '/usr/share/fonts/IPAexfont/ipaexg.ttf',
-    # Linux - Standard locations
-    '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf',
-    '/usr/share/fonts/truetype/japanese/TakaoPGothic.ttf',
-    # Add more paths as needed
-]
+# フォントパスはすでに上部で定義済み
 
 class PDFReportGenerator:
     def __init__(self, output_path):
@@ -251,22 +241,6 @@ class PDFReportGenerator:
             logger.error(f"PDF生成エラー: {str(e)}", exc_info=True)
             return False
 
-    def generate(self):
-        """PDFを生成"""
-        try:
-            doc = SimpleDocTemplate(
-                self.output_path,
-                pagesize=A4,
-                rightMargin=72,
-                leftMargin=72,
-                topMargin=72,
-                bottomMargin=72
-            )
-            doc.build(self.elements)
-            print(f"✓ PDFファイルを生成しました: {self.output_path}")
-        except Exception as e:
-            print(f"✗ PDF生成エラー: {str(e)}")
-            raise
-
 # フォント登録の実行
-register_japanese_font()
+if not register_fonts():
+    logger.error("フォント登録に失敗しました")
