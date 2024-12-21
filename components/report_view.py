@@ -195,8 +195,8 @@ def display_report(report: ComplianceReport):
     st.markdown("## サマリー")
     col1, col2, col3 = st.columns(3)
 
-    # 要件・禁止事項の総数を計算
-    total_items = report.total_requirements + report.non_compliant_count
+    # 要件・禁止事項の総数を計算（要件数と禁止事項数の合計）
+    total_items = total_requirements + total_prohibitions
 
     with col1:
         st.metric("要件・禁止事項の総数", total_items)
