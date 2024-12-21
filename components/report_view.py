@@ -25,28 +25,45 @@ def render_report_section():
         cache_key = f"report_cache_{legal_hash}_{internal_hash}.json"
     
     report_generated = False
-    if cache_key and os.path.exists(cache_key):
-        try:
-            with open(cache_key, 'r', encoding='utf-8') as f:
+    # Generate a new cache key with timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    if cache_key:
+        cache_key = f"report_cache_{timestamp}_{cache_key}"
+    else:
+        cache_key = f"report_cache_{timestamp}.json"
+    
+    # Check if we should use existing cache
+    existing_cache = None
+    try:
+        import glob
+        cache_files = glob.glob("report_cache_*.json")
+        if cache_files:
+            latest_cache = max(cache_files, key=os.path.getctime)
+            with open(latest_cache, 'r', encoding='utf-8') as f:
                 import json
                 cached_data = json.load(f)
-                st.session_state.generated_report = ComplianceReport.from_dict(cached_data)
+                existing_cache = ComplianceReport.from_dict(cached_data)
+                st.info(f"最新の分析結果（{os.path.basename(latest_cache)}）を読み込みました。")
                 report_generated = True
-                st.info("既存の分析結果を読み込みました。")
-        except Exception as e:
-            st.warning(f"キャッシュの読み込みに失敗しました: {str(e)}")
+                st.session_state.generated_report = existing_cache
+    except Exception as e:
+        st.warning(f"既存のキャッシュの読み込みに失敗しました: {str(e)}")
     
     if not report_generated:
         with st.spinner("新しい分析レポートを生成中..."):
             st.session_state.generated_report = generate_compliance_report()
-            # Save the report to cache if we have a cache key
-            if cache_key:
-                try:
-                    import json as json_module  # 明示的にインポート
-                    with open(cache_key, 'w', encoding='utf-8') as f:
-                        json_module.dump(st.session_state.generated_report.to_dict(), f, ensure_ascii=False, indent=2)
-                except Exception as e:
-                    st.warning(f"キャッシュの保存に失敗しました: {str(e)}")
+            # Save the report to a new cache file
+            try:
+                import json as json_module
+                # Ensure data directory exists
+                os.makedirs('data', exist_ok=True)
+                cache_path = os.path.join('data', cache_key)
+                with open(cache_path, 'w', encoding='utf-8') as f:
+                    json_module.dump(st.session_state.generated_report.to_dict(), f, ensure_ascii=False, indent=2)
+                st.success(f"分析結果を保存しました: {cache_key}")
+            except Exception as e:
+                st.warning(f"キャッシュの保存に失敗しました: {str(e)}")
+                print(f"Cache save error details: {str(e)}")  # デバッグ用ログ
 
     display_report(st.session_state.generated_report)
 
