@@ -307,14 +307,36 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                     distance = float(np.linalg.norm(query_embedding - cluster.centroid))
                     prob_distances.append((distance, prob))
 
-                # Sort by distance and get the closest items
+                # Sort by distance
                 req_distances.sort(key=lambda x: x[0])
                 prob_distances.sort(key=lambda x: x[0])
 
-                # Select items that are closest to this cluster (top N items)
-                cluster_size = max(2, len(requirements) // total_clusters)
-                cluster_reqs = [req for _, req in req_distances[:cluster_size] if _ < 1.5]
-                cluster_prohibs = [prob for _, prob in prob_distances[:cluster_size] if _ < 1.5]
+                # Assign requirements and prohibitions to this cluster if it's their closest cluster
+                for dist, req in req_distances:
+                    # Check if this cluster is the closest for this requirement
+                    is_closest = True
+                    for other_cluster in clusters:
+                        if other_cluster.id != cluster.id:
+                            other_embedding = embedding_processor.get_embedding(req['text'])
+                            other_distance = float(np.linalg.norm(other_embedding - other_cluster.centroid))
+                            if other_distance < dist:
+                                is_closest = False
+                                break
+                    if is_closest:
+                        cluster_reqs.append(req)
+
+                for dist, prob in prob_distances:
+                    # Check if this cluster is the closest for this prohibition
+                    is_closest = True
+                    for other_cluster in clusters:
+                        if other_cluster.id != cluster.id:
+                            other_embedding = embedding_processor.get_embedding(prob['text'])
+                            other_distance = float(np.linalg.norm(other_embedding - other_cluster.centroid))
+                            if other_distance < dist:
+                                is_closest = False
+                                break
+                    if is_closest:
+                        cluster_prohibs.append(prob)
 
                 # Generate comprehensive summary for the cluster
                 cluster_summary = gpt_processor.summarize_cluster_requirements(
