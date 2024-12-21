@@ -138,21 +138,24 @@ def generate_compliance_report() -> ComplianceReport:
         non_compliant_count=total_clusters - compliant_clusters,
         matches=[],  # 新しい構造では使用しない
         gaps=[],  # 新しい構造では使用しない
-        summary=report_content,
-        # 現在のクラスタ数に基づいて改善提案を生成
-        recommendations = []
-        for cluster in clusters:
-            if cluster.get('analysis') and cluster['analysis'].get('improvement_suggestions'):
-                recommendations.append(cluster['analysis']['improvement_suggestions'])
-            
-        # クラスタ数と改善提案の数が一致することを確認
-        if len(recommendations) != len(clusters):
-            print(f"Warning: Number of recommendations ({len(recommendations)}) does not match number of clusters ({len(clusters)})")
-            # 不足分は空のリストで埋める
-            while len(recommendations) < len(clusters):
-                recommendations.append([])
-            # 余分な提案は削除
-            recommendations = recommendations[:len(clusters)])
+        summary=report_content)
+
+    # 現在のクラスタ数に基づいて改善提案を生成
+    recommendations = []
+    for cluster in clusters:
+        if cluster.get('analysis') and cluster['analysis'].get('improvement_suggestions'):
+            recommendations.append(cluster['analysis']['improvement_suggestions'])
+        
+    # クラスタ数と改善提案の数が一致することを確認
+    if len(recommendations) != len(clusters):
+        print(f"Warning: Number of recommendations ({len(recommendations)}) does not match number of clusters ({len(clusters)})")
+        # 不足分は空のリストで埋める
+        while len(recommendations) < len(clusters):
+            recommendations.append([])
+        # 余分な提案は削除
+        recommendations = recommendations[:len(clusters)]
+    
+    report.recommendations = recommendations
 
     return report
 
