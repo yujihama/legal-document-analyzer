@@ -1,8 +1,11 @@
 import streamlit as st
 from processors.gpt_processor import GPTProcessor
 import json
+import os
 from models.compliance_model import ComplianceReport
 from datetime import datetime
+import plotly.graph_objects as go
+from utils.pdf_generator import PDFReportGenerator
 
 
 def render_report_section():
@@ -274,3 +277,69 @@ def display_report(report: ComplianceReport):
                        data=markdown_report,
                        file_name="compliance_report.md",
                        mime="text/markdown")
+    
+    # PDF Download
+    if st.button("PDFレポートを生成"):
+        with st.spinner("PDFレポートを生成中..."):
+            # Create PDF generator
+            pdf_generator = PDFReportGenerator("compliance_report.pdf")
+            
+            # Add title
+            pdf_generator.add_title("コンプライアンス分析レポート")
+            
+            # Add summary section
+            pdf_generator.add_heading("分析概要")
+            summary_table_data = [
+                ["項目", "値"],
+                ["要件・禁止事項総数", str(total_items)],
+                ["遵守クラスタ数", str(report.compliant_count)],
+                ["遵守率", f"{compliance_rate:.1f}%"]
+            ]
+            pdf_generator.add_table(summary_table_data)
+            
+            # Add compliance rate chart
+            fig = go.Figure(data=[
+                go.Pie(labels=['遵守', '未遵守'],
+                      values=[report.compliant_count, report.non_compliant_count],
+                      hole=.3)
+            ])
+            fig.update_layout(title="遵守状況の分布")
+            pdf_generator.add_plotly_figure(fig)
+            
+            # Add detailed analysis
+            pdf_generator.add_heading("クラスタ別詳細分析")
+            for i, section in enumerate(cluster_sections, 1):
+                pdf_generator.add_heading(f"クラスタ {i}", level=2)
+                
+                # Add cluster details
+                cluster_content = section.strip()
+                if "**要約:**" in cluster_content:
+                    summary = cluster_content.split("**要約:**\n")[1].split("\n**主要な発見事項:**")[0]
+                    pdf_generator.add_paragraph(summary)
+                
+                # Add findings
+                if "**主要な発見事項:**" in cluster_content:
+                    findings = cluster_content.split("**主要な発見事項:**")[1].strip()
+                    pdf_generator.add_paragraph("主要な発見事項:")
+                    for finding in findings.split("\n"):
+                        if finding.strip() and finding.startswith("-"):
+                            pdf_generator.add_paragraph(f"  {finding}")
+            
+            # Generate PDF
+            pdf_generator.generate()
+            
+            # Read the generated PDF file
+            with open("compliance_report.pdf", "rb") as pdf_file:
+                pdf_bytes = pdf_file.read()
+            
+            # Create download button for PDF
+            st.download_button(
+                label="PDFレポートをダウンロード",
+                data=pdf_bytes,
+                file_name="compliance_report.pdf",
+                mime="application/pdf"
+            )
+            
+            # Clean up the temporary PDF file
+            if os.path.exists("compliance_report.pdf"):
+                os.remove("compliance_report.pdf")
