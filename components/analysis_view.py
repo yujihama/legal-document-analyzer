@@ -221,7 +221,7 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
         if 'documents' in st.session_state:
             legal_hash = hashlib.md5(st.session_state.documents['legal'].encode()).hexdigest()[:8]
             internal_hash = hashlib.md5(st.session_state.documents['internal'].encode()).hexdigest()[:8]
-            cache_file = f"data/cluster_analysis_{legal_hash}_{internal_hash}.json"
+            cache_file = f"cluster_analysis_{legal_hash}_{internal_hash}.json"
         else:
             cache_key = hashlib.md5(json.dumps(cache_data, sort_keys=True).encode()).hexdigest()
             cache_file = f"cluster_analysis_{cache_key}.json"

@@ -21,7 +21,7 @@ def render_report_section():
         import hashlib
         legal_hash = hashlib.md5(st.session_state.documents['legal'].encode()).hexdigest()[:8]
         internal_hash = hashlib.md5(st.session_state.documents['internal'].encode()).hexdigest()[:8]
-        cache_file = f"data/cluster_analysis_{legal_hash}_{internal_hash}.json"
+        cache_file = f"cluster_analysis_{legal_hash}_{internal_hash}.json"
 
     # 既存の分析結果を確認
     import os
