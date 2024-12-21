@@ -236,11 +236,11 @@ class EmbeddingProcessor:
             clusterer = hdbscan.HDBSCAN(
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
-                metric='cosine',  # Changed to cosine similarity for better semantic grouping
-                cluster_selection_method='eom',  # Excess of Mass for better cluster separation
-                cluster_selection_epsilon=0.2,  # Smaller epsilon for finer cluster boundaries
+                metric='cosine',  # Cosine similarity for semantic grouping
+                cluster_selection_method='leaf',  # Changed to leaf for finer clustering
+                cluster_selection_epsilon=0.1,  # Reduced epsilon for stricter cluster boundaries
                 prediction_data=True,
-                alpha=0.8  # Increased alpha for more conservative cluster merging
+                alpha=0.5  # Reduced alpha for less aggressive cluster merging
             )
             
             cluster_labels = clusterer.fit_predict(embeddings_array)
@@ -302,15 +302,16 @@ class EmbeddingProcessor:
             
             avg_similarity = np.mean(similarities)
             
-            # If cluster is too cohesive (very similar texts), try to split
-            if avg_similarity > 0.95 and len(texts) > 3:
-                # Try to create sub-clusters
+            # If cluster is somewhat cohesive, try to split for finer granularity
+            if avg_similarity > 0.85 and len(texts) > 2:  # Reduced similarity threshold and minimum texts
+                # Try to create sub-clusters with more sensitive parameters
                 sub_clusterer = hdbscan.HDBSCAN(
                     min_cluster_size=2,
                     min_samples=1,
                     metric='cosine',
-                    cluster_selection_method='eom',
-                    cluster_selection_epsilon=0.1,  # Even finer granularity for sub-clusters
+                    cluster_selection_method='leaf',  # Changed to leaf for finer sub-clustering
+                    cluster_selection_epsilon=0.05,  # Further reduced epsilon for even finer granularity
+                    alpha=0.3  # Lower alpha for more aggressive splitting
                 )
                 
                 try:
