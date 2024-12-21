@@ -206,7 +206,6 @@ class GPTProcessor:
             return f"# コンプライアンス分析レポート\n\n## エラー\nレポートの生成中にエラーが発生しました：{str(e)}"
 
     @retry_on_rate_limit()
-    @retry_on_rate_limit()
     def extract_hierarchical_context(self, text: str) -> Dict:
         """Extract hierarchical context information from the document"""
         prompt = """
@@ -298,8 +297,7 @@ class GPTProcessor:
 
     @retry_on_rate_limit()
     def analyze_cluster_compliance(self, cluster_summary: str, regulations: List[str], num_trials: int = 3) -> Dict:
-        """複数回の判定を実行し、結果を統計的に集約する"""
-        """Analyze if regulations satisfy the cluster's requirements summary"""
+        """Analyze if regulations satisfy the cluster's requirements summary and aggregate results from multiple trials"""
         prompts = {
             'ja': """
             クラスタの要約と社内規定を比較し、包括的なコンプライアンス評価を行ってください。

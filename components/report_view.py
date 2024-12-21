@@ -167,11 +167,29 @@ def display_report(report: ComplianceReport):
             # 基本情報と概要
             col1, col2 = st.columns([1, 2])
             with col1:
-                compliance_status = "遵守" if "遵守状況: 遵守" in cluster_content else "未遵守"
-                score = cluster_content.split("スコア: ")[1].split("\n")[0]
-                trial_info = f"{cluster_content.split('スコア: ')[1].split('/')[0].split('回の判定で')[0]}/{cluster_content.split('/')[1].split('回の判定で')[0]}" if "スコア:" in cluster_content and "/" in cluster_content.split('スコア: ')[1] else ""
-                st.metric("遵守状況", f"{compliance_status} ({trial_info})")
-                st.metric("平均スコア", score)
+                try:
+                    compliance_status = "遵守" if "遵守状況: 遵守" in cluster_content else "未遵守"
+                    
+                    # スコアの抽出をより安全に行う
+                    score = "N/A"
+                    if "スコア: " in cluster_content:
+                        score_parts = cluster_content.split("スコア: ")[1].split("\n")
+                        if score_parts:
+                            score = score_parts[0].strip()
+                    
+                    # 試行回数情報の抽出
+                    trial_info = ""
+                    if "判定結果（" in cluster_content and "が遵守と判定）" in cluster_content:
+                        trial_text = cluster_content.split("判定結果（")[1].split("が遵守と判定）")[0]
+                        if "/" in trial_text:
+                            trial_info = trial_text
+                    
+                    st.metric("遵守状況", f"{compliance_status} ({trial_info})" if trial_info else compliance_status)
+                    st.metric("平均スコア", score)
+                except Exception as e:
+                    print(f"Error parsing cluster content: {e}")
+                    st.metric("遵守状況", "解析エラー")
+                    st.metric("平均スコア", "N/A")
 
 
             with col2:
