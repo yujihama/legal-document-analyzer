@@ -235,13 +235,19 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
             print("No cached results found, performing new clustering")
 
         gpt_processor = GPTProcessor()
+        # Generate clusters
+        print("Starting clustering process...")
         clusters = processor.perform_clustering(min_cluster_size=2)
         print(f"Generated clusters count: {len(clusters)}")
+
         if not clusters:
             st.error("クラスタが見つかりません")
             return []
-            
-        print("Cluster IDs:", [cluster.id for cluster in clusters])
+
+        # Debug information
+        print("Cluster details:")
+        for cluster in clusters:
+            print(f"Cluster ID: {cluster.id}, Texts count: {len(cluster.texts)}")
 
         total_clusters = len(clusters)
         results = []

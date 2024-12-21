@@ -183,13 +183,18 @@ def display_report(report: ComplianceReport):
 
     # クラスタ別詳細分析
     st.markdown("## クラスタ別詳細分析")
-    cluster_sections = report.summary.split('### クラスタ')[1:]
-    print(f"Found {len(cluster_sections)} cluster sections in report")
     
-    # 実際のクラスタ数のみを表示
-    valid_sections = [s for s in cluster_sections if s.strip()]  # 空のセクションを除外
-    for i, section in enumerate(valid_sections, 1):
-        with st.expander(f"クラスタ {i} の詳細分析", expanded=True):
+    # compliance_resultsから直接クラスタ情報を取得
+    if 'compliance_results' not in st.session_state:
+        st.warning("クラスタ分析結果が見つかりません")
+        return
+        
+    clusters = st.session_state.compliance_results
+    print(f"Processing {len(clusters)} clusters from compliance_results")
+    
+    for cluster in clusters:
+        cluster_id = cluster.get('cluster_id', 'Unknown')
+        with st.expander(f"クラスタ {cluster_id} の詳細分析", expanded=True):
             # クラスタの基本情報
             cluster_content = section.strip()
 
