@@ -139,32 +139,68 @@ class EmbeddingProcessor:
         return results
 
     def perform_clustering(self, min_cluster_size: int = 2, cache_id: str = None) -> List[ClusterInfo]:
-        """Perform HDBSCAN clustering on the stored embeddings"""
+        """Perform HDBSCAN clustering on the stored embeddings with improved caching"""
         from utils.persistence import load_processing_results, save_processing_results
+        import hashlib
+        import json
         
         if not self.stored_texts:
             raise ValueError("No texts have been stored yet")
 
-        # Generate cache_id if not provided
+        # Generate a more robust cache_id if not provided
         if cache_id is None:
-            cache_id = str(hash("".join(self.stored_texts)))[:8]
+            # Sort texts to ensure consistent hash regardless of order
+            sorted_texts = sorted(self.stored_texts)
+            # Create a hash of the content and parameters
+            hash_content = {
+                'texts': sorted_texts,
+                'min_cluster_size': min_cluster_size,
+                'timestamp': datetime.now().strftime('%Y%m%d')
+            }
+            hash_string = json.dumps(hash_content, ensure_ascii=False)
+            cache_id = hashlib.md5(hash_string.encode('utf-8')).hexdigest()[:12]
+            
+        cache_file = f"clusters_{cache_id}.json"
+        print(f"Cache ID: {cache_id}")
             
         # Try to load cached results
-        cached_results = load_processing_results(f"clusters_{cache_id}.json")
-        if cached_results:
-            print(f"Loading cached clustering results for {cache_id}")
-            clusters = []
-            for cluster_data in cached_results['clusters']:
-                cluster = ClusterInfo(
-                    id=cluster_data['id'],
-                    texts=cluster_data['texts'],
-                    centroid=np.array(cluster_data['centroid']) if cluster_data['centroid'] else None,
-                    representative_text=cluster_data.get('representative_text'),
-                    summary=cluster_data.get('summary')
-                )
-                clusters.append(cluster)
-            self.clusters = clusters
-            return self.clusters
+        try:
+            cached_results = load_processing_results(cache_file)
+            if cached_results:
+                print(f"Loading cached clustering results for {cache_id}")
+                
+                # Validate cached data structure
+                if not isinstance(cached_results, dict) or 'clusters' not in cached_results:
+                    print("Invalid cache data structure")
+                    cached_results = None
+                else:
+                    try:
+                        clusters = []
+                        for cluster_data in cached_results['clusters']:
+                            # Validate required fields
+                            if not all(k in cluster_data for k in ['id', 'texts']):
+                                continue
+                                
+                            cluster = ClusterInfo(
+                                id=cluster_data['id'],
+                                texts=cluster_data['texts'],
+                                centroid=np.array(cluster_data['centroid']) if cluster_data.get('centroid') else None,
+                                representative_text=cluster_data.get('representative_text'),
+                                summary=cluster_data.get('summary'),
+                                created_at=datetime.fromisoformat(cluster_data.get('created_at', datetime.now().isoformat()))
+                            )
+                            clusters.append(cluster)
+                            
+                        if clusters:  # Only use cache if valid clusters were created
+                            self.clusters = clusters
+                            print(f"Successfully loaded {len(clusters)} clusters from cache")
+                            return self.clusters
+                    except Exception as e:
+                        print(f"Error processing cached data: {e}")
+                        cached_results = None
+        except Exception as e:
+            print(f"Error loading cache file: {e}")
+            cached_results = None
 
         n_texts = len(self.stored_texts)
         print(f"Starting clustering with {n_texts} texts")
@@ -305,14 +341,38 @@ class EmbeddingProcessor:
             )
             self.clusters.append(cluster_info)
         
-        # Save clustering results
-        cluster_data = {
-            'cache_id': cache_id,
-            'clusters': [cluster.to_dict() for cluster in self.clusters],
-            'processed_at': datetime.now().isoformat()
-        }
-        save_processing_results(cluster_data, f"clusters_{cache_id}.json")
-        
+        # Save clustering results with enhanced error handling
+        try:
+            # Prepare cache data with additional metadata
+            cluster_data = {
+                'cache_id': cache_id,
+                'version': '1.0',
+                'clusters': [cluster.to_dict() for cluster in self.clusters],
+                'metadata': {
+                    'processed_at': datetime.now().isoformat(),
+                    'text_count': len(self.stored_texts),
+                    'min_cluster_size': min_cluster_size,
+                    'cluster_count': len(self.clusters)
+                }
+            }
+            
+            # Validate cluster data before saving
+            for cluster in cluster_data['clusters']:
+                if not isinstance(cluster.get('texts', []), list):
+                    print(f"Invalid texts format in cluster {cluster.get('id')}")
+                    continue
+                if cluster.get('centroid') is not None and not isinstance(cluster['centroid'], list):
+                    cluster['centroid'] = cluster['centroid'].tolist() if hasattr(cluster['centroid'], 'tolist') else None
+            
+            # Save to cache file
+            cache_file = f"clusters_{cache_id}.json"
+            save_processing_results(cluster_data, cache_file)
+            print(f"Successfully cached clustering results to {cache_file}")
+            
+        except Exception as e:
+            print(f"Error saving clustering results to cache: {e}")
+            # Continue without caching if saving fails
+            
         return self.clusters
 
     def get_cluster_info(self, cluster_id: int) -> Optional[ClusterInfo]:
