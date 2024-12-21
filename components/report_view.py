@@ -42,8 +42,9 @@ def render_report_section():
             # Save the report to cache if we have a cache key
             if cache_key:
                 try:
+                    import json as json_module  # 明示的にインポート
                     with open(cache_key, 'w', encoding='utf-8') as f:
-                        json.dump(st.session_state.generated_report.to_dict(), f, ensure_ascii=False, indent=2)
+                        json_module.dump(st.session_state.generated_report.to_dict(), f, ensure_ascii=False, indent=2)
                 except Exception as e:
                     st.warning(f"キャッシュの保存に失敗しました: {str(e)}")
 
