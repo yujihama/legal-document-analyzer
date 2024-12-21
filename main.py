@@ -19,20 +19,6 @@ def main():
         st.session_state.documents = {'legal': None, 'internal': None}
     if 'analysis_results' not in st.session_state:
         st.session_state.analysis_results = None
-    if 'language' not in st.session_state:
-        st.session_state.language = 'ja'  # Default to Japanese
-    
-    # Language selector
-    selected_lang = st.selectbox(
-        "言語選択 / Language Selection",
-        options=['ja', 'en'],
-        format_func=lambda x: '日本語' if x == 'ja' else 'English',
-        index=0 if st.session_state.language == 'ja' else 1
-    )
-    
-    if selected_lang != st.session_state.language:
-        st.session_state.language = selected_lang
-        st.rerun()
     
     # Navigation
     tabs = st.tabs(["Document Upload", "Analysis", "Report"])
