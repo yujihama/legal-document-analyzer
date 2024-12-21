@@ -83,9 +83,11 @@ def generate_compliance_report() -> ComplianceReport:
         if cluster.get('analysis', {}).get('overall_compliance', False))
 
     # クラスタから要件と禁止事項の総数を計算
-    total_requirements = sum(len(cluster.get('requirements', [])) for cluster in clusters)
-    total_prohibitions = sum(len(cluster.get('prohibitions', [])) for cluster in clusters)
-    print(f"Total requirements: {total_requirements}, Total prohibitions: {total_prohibitions}")
+    # 元の抽出結果から直接カウント
+    total_reqs = len(results['legal']['requirements'])
+    total_prohibs = len(results['legal']['prohibitions'])
+
+    print(f"Original counts - Requirements: {total_reqs}, Prohibitions: {total_prohibs}")
 
     # レポートのサマリーを生成
     print(f"Generating report for {len(clusters)} clusters")
@@ -149,14 +151,13 @@ def generate_compliance_report() -> ComplianceReport:
     report_content = '\n'.join(summary_parts)
 
     # Create report object with updated structure
-    # 要件と禁止事項の合計を計算
-    total_items = total_requirements + total_prohibitions
+    print(f"Setting total requirements to: {total_reqs + total_prohibs}")
     
     report = ComplianceReport(
         timestamp=datetime.now(),
         legal_document_name="法令文書",
         internal_document_name="社内規定",
-        total_requirements=total_items,  # 要件と禁止事項の合計を設定
+        total_requirements=total_reqs + total_prohibs,  # 要件と禁止事項の合計を設定
         compliant_count=compliant_clusters,
         non_compliant_count=total_clusters - compliant_clusters,
         matches=[],  # 新しい構造では使用しない
