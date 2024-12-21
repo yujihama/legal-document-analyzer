@@ -385,14 +385,6 @@ wheels = [
 ]
 
 [[package]]
-name = "kaleido"
-version = "0.2.1.post1"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/86/4b/d668e288b694661d2fbfc2b972db69cf1f30f8b8a91be14dcf9f000cab16/kaleido-0.2.1.post1-py2.py3-none-manylinux2014_armv7l.whl", hash = "sha256:d313940896c24447fc12c74f60d46ea826195fc991f58569a6e73864d53e5c20", size = 71653137 },
-]
-
-[[package]]
 name = "markdown-it-py"
 version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -890,7 +882,6 @@ source = { virtual = "." }
 dependencies = [
     { name = "faiss-cpu" },
     { name = "hdbscan" },
-    { name = "kaleido" },
     { name = "openai" },
     { name = "plotly" },
     { name = "pypdf2" },
@@ -904,7 +895,6 @@ dependencies = [
 requires-dist = [
     { name = "faiss-cpu", specifier = ">=1.9.0.post1" },
     { name = "hdbscan", specifier = ">=0.8.40" },
-    { name = "kaleido", specifier = ">=0.2.1.post1" },
     { name = "openai", specifier = ">=1.57.4" },
     { name = "plotly", specifier = ">=5.24.1" },
     { name = "pypdf2", specifier = ">=3.0.1" },
