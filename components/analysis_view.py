@@ -333,7 +333,11 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
         status_text.empty()
 
         # Save results to cache
-        save_processing_results(cache_file, results)
+        try:
+            save_processing_results(results, cache_file)
+            print(f"Successfully saved results to cache file: {cache_file}")
+        except Exception as e:
+            print(f"Error saving results to cache: {str(e)}")
         return results
     except Exception as e:
         st.error(f"コンプライアンス分析中にエラーが発生しました: {str(e)}")
