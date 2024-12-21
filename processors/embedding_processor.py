@@ -72,17 +72,47 @@ class EmbeddingProcessor:
         # 基本的なテキストクリーニング
         text = text.strip()
         
-        # 重要な区切り文字を強調
-        text = text.replace('。', '。 ')  # 文末の区切りを強調
+        # 文章構造の区切りを強調
+        text = text.replace('。', '。\n')  # 文末で改行を追加
         text = text.replace('、', '、 ')  # 句読点の区切りを強調
+        text = text.replace('）', '） ')  # 括弧の後にスペース
+        text = text.replace('「', ' 「')  # 括弧の前にスペース
         
-        # 重要なキーワードの前後にスペースを追加して強調
-        keywords = ['禁止', '義務', '要件', '必須', '規則', '規定', '手順', 
-                   '基準', '対策', '管理', 'セキュリティ', '方針']
-        for keyword in keywords:
-            text = text.replace(keyword, f' {keyword} ')
+        # 章立て・条項の区切りを強調
+        text = text.replace('第', '\n第')
+        text = text.replace('条', '条\n')
         
-        # 複数スペースを単一スペースに置換
+        # 重要な区切り文字やマーカーを強調
+        markers = ['。', '：', '；', '・']
+        for marker in markers:
+            text = text.replace(marker, f'{marker}\n')
+        
+        # 重要なキーワードの前後にスペースと特殊マーカーを追加して強調
+        keywords = {
+            '禁止': 'PROHIBITION_',
+            '義務': 'OBLIGATION_',
+            '要件': 'REQUIREMENT_',
+            '必須': 'MANDATORY_',
+            '規則': 'RULE_',
+            '規定': 'REGULATION_',
+            '手順': 'PROCEDURE_',
+            '基準': 'STANDARD_',
+            '対策': 'MEASURE_',
+            '管理': 'CONTROL_',
+            'セキュリティ': 'SECURITY_',
+            '方針': 'POLICY_'
+        }
+        
+        for keyword, prefix in keywords.items():
+            text = text.replace(keyword, f' {prefix}{keyword} ')
+        
+        # 箇条書きの強調
+        text = text.replace('\n1.', '\nLIST_ITEM_1.')
+        text = text.replace('\n2.', '\nLIST_ITEM_2.')
+        text = text.replace('\n3.', '\nLIST_ITEM_3.')
+        
+        # 複数の改行を単一の改行に、複数のスペースを単一のスペースに置換
+        text = '\n'.join(line.strip() for line in text.split('\n') if line.strip())
         text = ' '.join(text.split())
         
         return text
@@ -233,19 +263,42 @@ class EmbeddingProcessor:
         # Perform HDBSCAN clustering with adjusted parameters for finer clustering
         try:
             print("Attempting HDBSCAN clustering with refined parameters...")
+            # Calculate pairwise distances for debugging
+            from sklearn.metrics.pairwise import cosine_distances
+            distances = cosine_distances(embeddings_array)
+            print(f"Distance matrix shape: {distances.shape}")
+            print(f"Average distance between points: {np.mean(distances):.4f}")
+            print(f"Min distance between points: {np.min(distances[distances > 0]):.4f}")
+            print(f"Max distance between points: {np.max(distances):.4f}")
+
+            # Adjust distance metric to be more sensitive to small differences
+            def enhanced_metric(x, y):
+                cosine_dist = cosine_distances(x.reshape(1, -1), y.reshape(1, -1))[0][0]
+                # Amplify small differences
+                return np.power(cosine_dist, 0.5)
+
             clusterer = hdbscan.HDBSCAN(
                 min_cluster_size=min_cluster_size,
                 min_samples=1,  # Fixed to 1 to allow smaller clusters
-                metric='cosine',  # Cosine similarity for semantic grouping
+                metric=enhanced_metric,  # Custom metric for more sensitive distance calculation
                 cluster_selection_method='leaf',  # Using leaf for finest possible clustering
-                cluster_selection_epsilon=0.05,  # Further reduced epsilon for even stricter boundaries
+                cluster_selection_epsilon=0.03,  # Even more reduced epsilon
                 prediction_data=True,
-                alpha=0.3  # Further reduced alpha for more aggressive cluster splitting
+                alpha=0.2  # Further reduced alpha for even more aggressive splitting
             )
             
             cluster_labels = clusterer.fit_predict(embeddings_array)
             n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
             print(f"Clustering complete. Found {n_clusters} clusters")
+            
+            # Debug information about cluster distribution
+            unique_labels, counts = np.unique(cluster_labels, return_counts=True)
+            print("Cluster distribution:")
+            for label, count in zip(unique_labels, counts):
+                if label != -1:
+                    print(f"Cluster {label}: {count} items")
+                else:
+                    print(f"Noise points: {count} items")
 
             # クラスタリングが失敗した場合（全てのポイントがノイズとして分類された場合）
             if n_clusters == 0:
