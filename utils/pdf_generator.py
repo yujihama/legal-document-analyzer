@@ -215,26 +215,53 @@ class PDFReportGenerator:
 
     def try_generate_with_all_fonts(self):
         """全ての利用可能なフォントでPDFの生成を試みる"""
-        success = False
+        print("各フォントでのPDF生成を開始します...")
+        
+        # 各フォントファミリーでの生成を試みる
+        success_fonts = []
         for font_family, paths in ALL_FONT_PATHS.items():
             for font_path in paths:
                 if os.path.exists(font_path):
                     try:
-                        print(f"{font_family}フォントでPDF生成を試みます: {font_path}")
-                        pdfmetrics.registerFont(TTFont(JAPANESE_FONT_NAME, font_path))
-                        self.generate()
-                        success = True
-                        print(f"✓ {font_family}フォントでPDFの生成に成功しました")
-                        # 生成したPDFの名前を変更してバックアップを作成
-                        backup_path = f"{self.output_path[:-4]}_{font_family}.pdf"
-                        import shutil
-                        shutil.copy2(self.output_path, backup_path)
+                        print(f"\n{font_family}フォントでPDF生成を試みます: {font_path}")
+                        # フォントを登録
+                        font_name = f"{font_family}_Font"
+                        pdfmetrics.registerFont(TTFont(font_name, font_path))
+                        
+                        # スタイルのフォントを一時的に変更
+                        original_font = self.jp_style.fontName
+                        self.jp_style.fontName = font_name
+                        self.jp_heading_style.fontName = font_name
+                        
+                        # PDFを生成
+                        output_path = f"{self.output_path[:-4]}_{font_family}.pdf"
+                        doc = SimpleDocTemplate(
+                            output_path,
+                            pagesize=A4,
+                            rightMargin=72,
+                            leftMargin=72,
+                            topMargin=72,
+                            bottomMargin=72
+                        )
+                        doc.build(self.elements)
+                        
+                        # スタイルのフォントを元に戻す
+                        self.jp_style.fontName = original_font
+                        self.jp_heading_style.fontName = original_font
+                        
+                        success_fonts.append(font_family)
+                        print(f"✓ {font_family}フォントでのPDF生成に成功しました: {output_path}")
                     except Exception as e:
                         print(f"✗ {font_family}フォントでの生成に失敗: {str(e)}")
                         continue
         
-        if not success:
-            print("警告: すべてのフォントでPDF生成に失敗しました。デフォルトフォントを使用します。")
+        # 結果の表示
+        if success_fonts:
+            print("\n生成に成功したPDFファイル:")
+            for font in success_fonts:
+                print(f"- {self.output_path[:-4]}_{font}.pdf")
+        else:
+            print("\n警告: すべてのフォントでPDF生成に失敗しました。デフォルトフォントを使用します。")
             global JAPANESE_FONT
             JAPANESE_FONT = DEFAULT_FONT
             self.generate()
