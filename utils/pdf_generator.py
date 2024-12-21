@@ -82,8 +82,8 @@ class PDFReportGenerator:
         pie.slices.strokeWidth = 0.5
         
         # 色の設定
-        colors = [colors.HexColor('#2E86C1'), colors.HexColor('#E74C3C')]
-        for i, color in enumerate(colors):
+        chart_colors = [colors.HexColor('#2E86C1'), colors.HexColor('#E74C3C')]
+        for i, color in enumerate(chart_colors):
             pie.slices[i].fillColor = color
         
         drawing.add(pie)
