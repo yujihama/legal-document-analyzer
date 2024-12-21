@@ -82,14 +82,10 @@ def generate_compliance_report() -> ComplianceReport:
         1 for cluster in clusters
         if cluster.get('analysis', {}).get('overall_compliance', False))
 
-    # Get unique requirements and prohibitions from original analysis results
-    if 'analysis_results' in st.session_state:
-        results = st.session_state.analysis_results
-        total_requirements = len(results['legal']['requirements'])
-        total_prohibitions = len(results['legal']['prohibitions'])
-    else:
-        total_requirements = 0
-        total_prohibitions = 0
+    # クラスタから要件と禁止事項の総数を計算
+    total_requirements = sum(len(cluster.get('requirements', [])) for cluster in clusters)
+    total_prohibitions = sum(len(cluster.get('prohibitions', [])) for cluster in clusters)
+    print(f"Total requirements: {total_requirements}, Total prohibitions: {total_prohibitions}")
 
     # レポートのサマリーを生成
     print(f"Generating report for {len(clusters)} clusters")
@@ -196,7 +192,7 @@ def display_report(report: ComplianceReport):
     col1, col2, col3 = st.columns(3)
 
     # 要件・禁止事項の総数を計算（要件数と禁止事項数の合計）
-    total_items = total_requirements + total_prohibitions
+    total_items = report.total_requirements if hasattr(report, 'total_requirements') else 0
 
     with col1:
         st.metric("要件・禁止事項の総数", total_items)
