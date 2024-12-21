@@ -105,17 +105,19 @@ class PDFReportGenerator:
         drawing = Drawing(width, height)
         pie = Pie()
         pie.x = width // 2
-        pie.y = height // 2 - 20  # 少し上に調整
-        pie.width = min(width, height) * 0.6
-        pie.height = min(width, height) * 0.6
+        pie.y = height // 2
+        pie.width = min(width, height) * 0.5
+        pie.height = min(width, height) * 0.5
         pie.data = data
         pie.labels = labels
         pie.slices.strokeWidth = 0.5
         
         # ラベルのスタイル設定
         pie.labels = [f'{label}\n{value}件' for label, value in zip(labels, data)]
-        pie.labelRadius = 1.2
+        pie.sideLabels = True
+        pie.simpleLabels = True
         pie.fontSize = 10
+        pie.direction = 'clockwise'
         
         # 色の設定
         chart_colors = [colors.HexColor('#2E86C1'), colors.HexColor('#E74C3C')]
