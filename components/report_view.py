@@ -75,9 +75,10 @@ def generate_compliance_report() -> ComplianceReport:
         total_prohibitions = 0
 
     # Generate summary content
+    print(f"Generating report for {len(clusters)} clusters")
     summary_parts = [
         "# クラスタベース分析レポート\n", f"## 概要\n",
-        f"以下の分析結果は、{total_clusters}個のクラスタに基づいています：\n",
+        f"以下の分析結果は、{len(clusters)}個のクラスタに基づいています：\n",
         f"- 分析対象の要件総数: {total_requirements}件",
         f"- 分析対象の禁止事項総数: {total_prohibitions}件",
         f"- 遵守クラスタ数: {compliant_clusters}個",
@@ -183,8 +184,11 @@ def display_report(report: ComplianceReport):
     # クラスタ別詳細分析
     st.markdown("## クラスタ別詳細分析")
     cluster_sections = report.summary.split('### クラスタ')[1:]
-
-    for i, section in enumerate(cluster_sections, 1):
+    print(f"Found {len(cluster_sections)} cluster sections in report")
+    
+    # 実際のクラスタ数のみを表示
+    valid_sections = [s for s in cluster_sections if s.strip()]  # 空のセクションを除外
+    for i, section in enumerate(valid_sections, 1):
         with st.expander(f"クラスタ {i} の詳細分析", expanded=True):
             # クラスタの基本情報
             cluster_content = section.strip()
