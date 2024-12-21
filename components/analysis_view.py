@@ -218,9 +218,9 @@ def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor
         }
         # Generate a unique key based on the content of both documents
         if 'documents' in st.session_state:
-            legal_hash = hashlib.md5(st.session_state.documents['legal'].encode()).hexdigest()
-            internal_hash = hashlib.md5(st.session_state.documents['internal'].encode()).hexdigest()
-            cache_file = f"report_cache_{legal_hash}_{internal_hash}.json"
+            legal_hash = hashlib.md5(st.session_state.documents['legal'].encode()).hexdigest()[:8]
+            internal_hash = hashlib.md5(st.session_state.documents['internal'].encode()).hexdigest()[:8]
+            cache_file = f"data/cluster_analysis_{legal_hash}_{internal_hash}.json"
         else:
             cache_key = hashlib.md5(json.dumps(cache_data, sort_keys=True).encode()).hexdigest()
             cache_file = f"cluster_analysis_{cache_key}.json"

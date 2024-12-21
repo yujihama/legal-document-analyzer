@@ -21,13 +21,13 @@ def render_report_section():
         import hashlib
         legal_hash = hashlib.md5(st.session_state.documents['legal'].encode()).hexdigest()[:8]
         internal_hash = hashlib.md5(st.session_state.documents['internal'].encode()).hexdigest()[:8]
-        analysis_file = f"data/cluster_analysis_{legal_hash}_{internal_hash}.json"
+        cache_file = f"data/cluster_analysis_{legal_hash}_{internal_hash}.json"
 
     # 既存の分析結果を確認
     import os
-    if analysis_file and os.path.exists(analysis_file):
+    if cache_file and os.path.exists(cache_file):
         try:
-            with open(analysis_file, 'r', encoding='utf-8') as f:
+            with open(cache_file, 'r', encoding='utf-8') as f:
                 import json
                 st.session_state.compliance_results = json.load(f)
                 st.success("既存の分析結果を読み込みました")
