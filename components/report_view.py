@@ -357,22 +357,19 @@ def display_report(report: ComplianceReport):
         
         # Add detailed analysis
         pdf_generator.add_heading("クラスタ別詳細分析")
-        for i, section in enumerate(cluster_sections, 1):
-            pdf_generator.add_heading(f"クラスタ {i}", level=2)
+        for cluster in clusters:
+            cluster_id = cluster.get('cluster_id', 'Unknown')
+            pdf_generator.add_heading(f"クラスタ {cluster_id}", level=2)
             
-            # Add cluster details
-            cluster_content = section.strip()
-            if "**要約:**" in cluster_content:
-                summary = cluster_content.split("**要約:**\n")[1].split("\n**主要な発見事項:**")[0]
-                pdf_generator.add_paragraph(summary)
+            # Add cluster summary
+            if cluster.get('summary', {}).get('comprehensive_summary'):
+                pdf_generator.add_paragraph(cluster['summary']['comprehensive_summary'])
             
             # Add findings
-            if "**主要な発見事項:**" in cluster_content:
-                findings = cluster_content.split("**主要な発見事項:**")[1].strip()
+            if cluster.get('analysis', {}).get('key_findings'):
                 pdf_generator.add_paragraph("主要な発見事項:")
-                for finding in findings.split("\n"):
-                    if finding.strip() and finding.startswith("-"):
-                        pdf_generator.add_paragraph(f"  {finding}")
+                for finding in cluster['analysis']['key_findings']:
+                    pdf_generator.add_paragraph(f"  - {finding}")
         
         # Generate PDF
         if not pdf_generator.generate():
