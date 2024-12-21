@@ -196,7 +196,8 @@ def display_report(report: ComplianceReport):
         cluster_id = cluster.get('cluster_id', 'Unknown')
         with st.expander(f"クラスタ {cluster_id} の詳細分析", expanded=True):
             # クラスタの基本情報
-            cluster_content = section.strip()
+            analysis = cluster.get('analysis', {})
+            summary = cluster.get('summary', {})
 
             # クラスタ詳細セクション
             st.markdown("### クラスタ詳細")
@@ -206,33 +207,21 @@ def display_report(report: ComplianceReport):
             col1, col2 = st.columns([1, 2])
             with col1:
                 try:
-                    compliance_status = "遵守" if "遵守状況: 遵守" in cluster_content else "未遵守"
+                    compliance_status = "遵守" if analysis.get('overall_compliance', False) else "未遵守"
+                    compliance_score = analysis.get('compliance_score', 0.0)
                     
-                    # スコアの抽出をより安全に行う
-                    score = "N/A"
-                    if "スコア: " in cluster_content:
-                        score_parts = cluster_content.split("スコア: ")[1].split("\n")
-                        if score_parts:
-                            score = score_parts[0].strip()
-                    
-                    # 試行回数情報の抽出
-                    trial_info = ""
-                    if "判定結果（" in cluster_content and "が遵守と判定）" in cluster_content:
-                        trial_text = cluster_content.split("判定結果（")[1].split("が遵守と判定）")[0]
-                        if "/" in trial_text:
-                            trial_info = trial_text
-                    
-                    st.metric("遵守状況", f"{compliance_status} ({trial_info})" if trial_info else compliance_status)
-                    st.metric("平均スコア", score)
+                    st.metric("遵守状況", compliance_status)
+                    st.metric("コンプライアンススコア", f"{compliance_score:.2f}")
                 except Exception as e:
-                    print(f"Error parsing cluster content: {e}")
+                    print(f"Error displaying cluster metrics: {e}")
                     st.metric("遵守状況", "解析エラー")
-                    st.metric("平均スコア", "N/A")
+                    st.metric("コンプライアンススコア", "N/A")
 
             with col2:
-                summary = cluster_content.split("**要約:**\n")[1].split(
-                    "\n**主要な発見事項:**")[0]
-                st.markdown(summary)
+                if summary.get('comprehensive_summary'):
+                    st.markdown(summary['comprehensive_summary'])
+                else:
+                    st.markdown("要約情報がありません")
 
             # 所属する要件・禁止事項
             st.markdown("#### 所属する要件・禁止事項")
