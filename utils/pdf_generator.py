@@ -14,6 +14,15 @@ from datetime import datetime
 DEFAULT_FONT = 'Helvetica'
 JAPANESE_FONT = 'HeiseiKakuGo-W5'
 
+# 日本語フォントの登録
+try:
+    pdfmetrics.registerFont(TTFont('HeiseiKakuGo-W5', 'HeiseiKakuGo-W5'))
+    print("日本語フォントが正常に登録されました")
+except Exception as e:
+    print(f"日本語フォント登録エラー: {str(e)}")
+    # フォールバック: 組み込みのHelveticaフォントを使用
+    JAPANESE_FONT = 'Helvetica'
+
 class PDFReportGenerator:
     def __init__(self, output_path):
         self.output_path = output_path
@@ -35,12 +44,13 @@ class PDFReportGenerator:
             parent=self.styles['Normal'],
             fontSize=10,
             leading=16,
-            fontName=DEFAULT_FONT,  # 基本フォントをHelveticaに設定
+            fontName=JAPANESE_FONT,
             wordWrap='CJK',
             allowWidows=1,
             allowOrphans=1,
             spaceAfter=10,
-            spaceBefore=10
+            spaceBefore=10,
+            encoding='utf-8'
         )
         
         # 見出しスタイルの設定（日本語対応）

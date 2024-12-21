@@ -15,9 +15,37 @@ def render_report_section():
         st.info("先に分析を完了してください")
         return
 
-    if 'generated_report' not in st.session_state:
-        with st.spinner("Generating comprehensive report..."):
+    # Check if we have a cached report for the current files
+    cache_key = None
+    if 'documents' in st.session_state:
+        import hashlib
+        # Generate a unique key based on the content of both documents
+        legal_hash = hashlib.md5(st.session_state.documents['legal'].encode()).hexdigest()
+        internal_hash = hashlib.md5(st.session_state.documents['internal'].encode()).hexdigest()
+        cache_key = f"report_cache_{legal_hash}_{internal_hash}.json"
+    
+    report_generated = False
+    if cache_key and os.path.exists(cache_key):
+        try:
+            with open(cache_key, 'r', encoding='utf-8') as f:
+                import json
+                cached_data = json.load(f)
+                st.session_state.generated_report = ComplianceReport.from_dict(cached_data)
+                report_generated = True
+                st.info("既存の分析結果を読み込みました。")
+        except Exception as e:
+            st.warning(f"キャッシュの読み込みに失敗しました: {str(e)}")
+    
+    if not report_generated:
+        with st.spinner("新しい分析レポートを生成中..."):
             st.session_state.generated_report = generate_compliance_report()
+            # Save the report to cache if we have a cache key
+            if cache_key:
+                try:
+                    with open(cache_key, 'w', encoding='utf-8') as f:
+                        json.dump(st.session_state.generated_report.to_dict(), f, ensure_ascii=False, indent=2)
+                except Exception as e:
+                    st.warning(f"キャッシュの保存に失敗しました: {str(e)}")
 
     display_report(st.session_state.generated_report)
 
