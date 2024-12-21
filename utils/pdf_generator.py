@@ -51,6 +51,53 @@ def register_japanese_font():
     JAPANESE_FONT = DEFAULT_FONT
     return False
 
+# 利用可能な全てのフォントパスを定義
+ALL_FONT_PATHS = {
+    'IPAex': [
+        '/usr/share/fonts/opentype/ipaexfont/ipaexg.ttf',
+        '/usr/share/fonts/opentype/ipaexfont/ipaexm.ttf'
+    ],
+    'IPA': [
+        '/usr/share/fonts/opentype/ipafont/ipag.ttf',
+        '/usr/share/fonts/opentype/ipafont/ipam.ttf'
+    ],
+    'Noto': [
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/truetype/noto/NotoSerifCJK-Regular.ttc'
+    ],
+    'M+': [
+        '/usr/share/fonts/truetype/mplus/mplus-1c-regular.ttf',
+        '/usr/share/fonts/truetype/mplus/mplus-2c-regular.ttf'
+    ]
+}
+
+def try_generate_with_all_fonts(self):
+    """全ての利用可能なフォントでPDFの生成を試みる"""
+    success = False
+    for font_family, paths in ALL_FONT_PATHS.items():
+        for font_path in paths:
+            if os.path.exists(font_path):
+                try:
+                    print(f"{font_family}フォントでPDF生成を試みます: {font_path}")
+                    pdfmetrics.registerFont(TTFont(JAPANESE_FONT_NAME, font_path))
+                    self.generate()
+                    success = True
+                    print(f"✓ {font_family}フォントでPDFの生成に成功しました")
+                    # 生成したPDFの名前を変更してバックアップを作成
+                    backup_path = f"{self.output_path[:-4]}_{font_family}.pdf"
+                    import shutil
+                    shutil.copy2(self.output_path, backup_path)
+                except Exception as e:
+                    print(f"✗ {font_family}フォントでの生成に失敗: {str(e)}")
+                    continue
+    
+    if not success:
+        print("警告: すべてのフォントでPDF生成に失敗しました。デフォルトフォントを使用します。")
+        JAPANESE_FONT = DEFAULT_FONT
+        self.generate()
+
 # フォント登録の実行
 register_japanese_font()
 

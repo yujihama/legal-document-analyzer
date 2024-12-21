@@ -350,7 +350,7 @@ def display_report(report: ComplianceReport):
                         pdf_generator.add_paragraph(f"  {finding}")
         
         # Generate PDF
-        pdf_generator.generate()
+        pdf_generator.try_generate_with_all_fonts()
         
         # Read the generated PDF file
         with open("compliance_report.pdf", "rb") as pdf_file:
