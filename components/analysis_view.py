@@ -69,11 +69,7 @@ def render_analysis_section():
             st.success("分析が完了しました")
 
     # Display results
-    headers = {
-        'ja': "遵守状況の概要",
-        'en': "Compliance Status Overview"
-    }
-    st.subheader(headers[st.session_state.language])
+    st.subheader("遵守状況の概要")
     display_compliance_results(st.session_state.compliance_results)
 
     # Display cluster analysis results
