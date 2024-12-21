@@ -4,6 +4,9 @@ import numpy as np
 from processors.embedding_processor import EmbeddingProcessor, ClusterInfo
 from processors.gpt_processor import GPTProcessor
 from processors.clustering_processor import ClusteringProcessor
+import hashlib
+import json
+from utils.persistence import load_processing_results, save_processing_results
 
 def render_analysis_section():
     st.header("Compliance Analysis")
@@ -200,87 +203,40 @@ def process_requirement(args):
         print(f"Error processing requirement: {e}")
         return None
 
-def analyze_compliance(requirements, prohibitions, embedding_processor):
-    """Analyze compliance using cluster-based approach"""
+def analyze_compliance(requirements, prohibitions, processor: EmbeddingProcessor) -> List[Dict]:
+    """Perform compliance analysis across all requirements"""
     try:
-        if not requirements and not prohibitions:
-            st.warning("要件または禁止事項が見つかりません")
-            return []
+        # Generate cache key based on requirements and prohibitions
+        import hashlib
+        import json
+        from utils.persistence import load_processing_results, save_processing_results
 
-        if not embedding_processor or not embedding_processor.stored_texts:
-            st.warning("内部規定が見つかりません")
-            return []
+        cache_data = {
+            'requirements': [r['text'] for r in requirements],
+            'prohibitions': [p['text'] for p in prohibitions]
+        }
+        cache_key = hashlib.md5(json.dumps(cache_data, sort_keys=True).encode()).hexdigest()
+        cache_file = f"cluster_analysis_{cache_key}.json"
+
+        # Try to load cached results
+        cached_results = load_processing_results(cache_file)
+        if cached_results:
+            print(f"Loading cached cluster analysis results for {cache_key}")
+            return cached_results
 
         gpt_processor = GPTProcessor()
+        clusters = processor.get_clusters()
+        if not clusters:
+            st.error("クラスタが見つかりません")
+            return []
 
-        # デフォルトのクラスタリングパラメータを設定
-        params = {
-            'min_cluster_size': 2,
-            'min_samples': 1,
-            'cluster_selection_epsilon': 0.2
-        }
-        selected_method = 'hdbscan'
-
-        # First, perform clustering on internal regulations
-        with st.spinner("クラスタリングを実行中..."):
-            try:
-                n_texts = len(embedding_processor.stored_texts)
-                if n_texts == 0:
-                    st.warning("分析対象のテキストが見つかりません")
-                    return []
-
-                # データ数に基づいてパラメータを調整
-                n_samples = len(embedding_processor.stored_texts)
-                adjusted_params = params.copy()
-
-                # 各メソッドに応じたパラメータの調整
-                if selected_method == 'hierarchical':
-                    adjusted_params['max_clusters'] = min(
-                        adjusted_params.get('max_clusters', 10),
-                        max(2, n_samples - 1)
-                    )
-                elif selected_method == 'dpmm':
-                    adjusted_params['max_components'] = min(
-                        adjusted_params.get('max_components', 10),
-                        max(2, n_samples - 1)
-                    )
-                elif selected_method == 'hdbscan':
-                    adjusted_params['min_cluster_size'] = min(
-                        adjusted_params.get('min_cluster_size', 2),
-                        max(2, n_samples // 2)
-                    )
-
-                # クラスタリングの実行
-                clustering_processor = ClusteringProcessor(method_name=selected_method)
-                embeddings = embedding_processor.batch_embed_texts(embedding_processor.stored_texts)
-
-                print(f"Clustering with method: {selected_method}")
-                print(f"Number of samples: {n_samples}")
-                print(f"Adjusted parameters: {adjusted_params}")
-
-                clusters = clustering_processor.perform_clustering(
-                    embeddings=embeddings,
-                    texts=embedding_processor.stored_texts,
-                    **adjusted_params
-                )
-
-                if not clusters:
-                    st.warning("クラスタリングが正常に実行できませんでした")
-                    return []
-
-                st.success(f"{len(clusters)}個のクラスタを生成しました")
-
-            except Exception as e:
-                st.error(f"クラスタリング中にエラーが発生しました: {str(e)}")
-                print(f"Clustering error details: {str(e)}")  # デバッグ用
-                return []
+        total_clusters = len(clusters)
+        results = []
 
         # Create a progress bar
         progress_bar = st.progress(0)
         status_text = st.empty()
-        total_clusters = len(clusters)
 
-        results = []
 
         # Process each cluster
         for i, cluster in enumerate(clusters):
@@ -292,14 +248,14 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                 # Calculate distances for all requirements to this cluster
                 req_distances = []
                 for req in requirements:
-                    query_embedding = embedding_processor.get_embedding(req['text'])
+                    query_embedding = processor.get_embedding(req['text'])
                     distance = float(np.linalg.norm(query_embedding - cluster.centroid))
                     req_distances.append((distance, req))
 
                 # Calculate distances for all prohibitions to this cluster
                 prob_distances = []
                 for prob in prohibitions:
-                    query_embedding = embedding_processor.get_embedding(prob['text'])
+                    query_embedding = processor.get_embedding(prob['text'])
                     distance = float(np.linalg.norm(query_embedding - cluster.centroid))
                     prob_distances.append((distance, prob))
 
@@ -313,7 +269,7 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                     is_closest = True
                     for other_cluster in clusters:
                         if other_cluster.id != cluster.id:
-                            other_embedding = embedding_processor.get_embedding(req['text'])
+                            other_embedding = processor.get_embedding(req['text'])
                             other_distance = float(np.linalg.norm(other_embedding - other_cluster.centroid))
                             if other_distance < dist:
                                 is_closest = False
@@ -326,7 +282,7 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
                     is_closest = True
                     for other_cluster in clusters:
                         if other_cluster.id != cluster.id:
-                            other_embedding = embedding_processor.get_embedding(prob['text'])
+                            other_embedding = processor.get_embedding(prob['text'])
                             other_distance = float(np.linalg.norm(other_embedding - other_cluster.centroid))
                             if other_distance < dist:
                                 is_closest = False
@@ -375,6 +331,8 @@ def analyze_compliance(requirements, prohibitions, embedding_processor):
         progress_bar.empty()
         status_text.empty()
 
+        # Save results to cache
+        save_processing_results(cache_file, results)
         return results
     except Exception as e:
         st.error(f"コンプライアンス分析中にエラーが発生しました: {str(e)}")
