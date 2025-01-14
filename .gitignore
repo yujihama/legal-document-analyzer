@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Logs and databases
+*.log
+*.sqlite
+
+# Cache
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Replit specific
+.config/
+.upm/
+.replit
+replit.nix
+.breakpoints
+poetry.lock
+uv.lock
+
+# Data and models (if they shouldn't be tracked)
+*.pkl
+*.h5
+*.model
+*.bin
+
+# Keep the sample data
+!sample_data/
