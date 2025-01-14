@@ -13,4 +13,5 @@ dependencies = [
     "scikit-learn>=1.6.0",
     "streamlit>=1.41.1",
     "tiktoken>=0.8.0",
+    "trafilatura>=2.0.0",
 ]

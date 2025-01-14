@@ -1,5 +1,5 @@
 import streamlit as st
-from components.document_upload.document_uploader import render_upload_section
+from components.document_upload import render_upload_section
 from components.analysis_view import render_analysis_section
 from components.report_view import render_report_section
 
