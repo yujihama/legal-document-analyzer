@@ -8,7 +8,7 @@
 - **フロントエンド**: Streamlit
 - **バックエンド**: Python 3.10
 - **機械学習/NLP**:
-  - OpenAI API (GPT-4, text-embedding-3-large)
+  - OpenAI API (GPT-4o, text-embedding-3-large)
   - HDBSCAN (階層的密度ベースクラスタリング)
   - scikit-learn
   - FAISS (類似度検索)
