@@ -91,6 +91,88 @@ class EmbeddingProcessor:
 - インクリメンタルアップデート
 - メモリ使用量の最適化
 
+## 詳細な処理フロー
+
+### 1. ドキュメント処理フェーズ (DocumentProcessor)
+1. **文書の前処理**
+   - `process_legal_document()`: 法令文書の処理
+     - チャンク分割 (max_tokens=5000)
+     - 階層的コンテキスト抽出
+   - `process_internal_document()`: 社内規定文書の処理
+     - チャンク分割と最適化
+
+### 2. テキスト埋め込み処理 (EmbeddingProcessor)
+1. **ベクトル化**
+   - `get_embedding()`: OpenAI APIによるテキストのベクトル化
+   - キャッシュベースの最適化
+   - 並列処理によるバッチ処理
+
+2. **クラスタリング処理**
+   - `perform_clustering()`: HDBSCANによるクラスタリング
+     - 密度ベースのクラスタリング
+     - 階層的サブクラスタリング
+     - キャッシュ管理
+
+### 3. コンプライアンス分析 (GPTProcessor)
+1. **要件抽出**
+   - `extract_requirements()`: 要件と禁止事項の抽出
+   - `extract_hierarchical_context()`: 文書構造の解析
+
+2. **コンプライアンス評価**
+   - `analyze_compliance()`: 規制要件との適合性評価
+   - `analyze_cluster_compliance()`: クラスタベースの評価
+   - 多段階評価プロセス
+
+3. **レポート生成**
+   - `generate_report()`: 包括的なレポートの生成
+   - `summarize_cluster_requirements()`: クラスタ要約
+   - PDFレポート出力
+
+### 4. UI処理フロー (Streamlitコンポーネント)
+1. **document_upload**
+   - ファイルアップロード処理
+   - 初期バリデーション
+   - セッション状態管理
+
+2. **analysis_view**
+   - クラスタ分析結果の表示
+   - インタラクティブな分析ビュー
+   - リアルタイムメトリクス計算
+
+3. **report_view**
+   - レポート表示と出力
+   - グラフ生成
+   - PDFエクスポート
+
+### データフロー図
+```
+[文書入力] → [DocumentProcessor]
+     ↓
+[EmbeddingProcessor] → [ベクトルDB]
+     ↓
+[ClusteringProcessor] → [クラスタ分析]
+     ↓
+[GPTProcessor] → [コンプライアンス評価]
+     ↓
+[レポート生成] → [UI表示/PDF出力]
+```
+
+### キャッシュ戦略
+1. **埋め込みキャッシュ**
+   - テキストハッシュベース
+   - JSONシリアライズ
+   - 有効期限管理
+
+2. **クラスタキャッシュ**
+   - クラスタIDベース
+   - 増分更新対応
+   - メモリ使用量最適化
+
+3. **分析結果キャッシュ**
+   - ドキュメントハッシュベース
+   - 部分更新サポート
+   - ディスク永続化
+
 ## セットアップ手順
 1. リポジトリのクローン
 ```bash
