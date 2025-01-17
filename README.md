@@ -1,4 +1,3 @@
-
 # 法的文書分析プラットフォーム
 
 ## システム概要
@@ -181,7 +180,8 @@ git clone [repository-url]
 
 2. 依存関係のインストール
 ```bash
-pip install -r requirements.txt
+# UVパッケージマネージャーを使用してパッケージをインストール
+uv pip install streamlit openai scikit-learn hdbscan faiss-cpu plotly pypdf2 reportlab tiktoken trafilatura
 ```
 
 3. アプリケーションの起動
